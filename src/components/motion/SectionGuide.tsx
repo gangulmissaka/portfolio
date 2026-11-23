@@ -38,10 +38,10 @@ export function SectionGuide({ sections }: { sections: { id: string; label: stri
     <nav
       ref={root}
       aria-label="Sections on this page"
-      className="group/nav no-print fixed right-4 top-1/2 z-[60] hidden -translate-y-1/2 xl:block"
+      className="group/nav no-print fixed right-2 top-1/2 z-[60] hidden -translate-y-1/2 xl:block"
       style={{ opacity: 0, visibility: 'hidden', transform: 'translate(12px, -50%)' }}
     >
-      <ol className="flex flex-col items-end gap-2.5 rounded-2xl border border-line bg-ink/75 px-3 py-3.5 shadow-xl shadow-black/30 backdrop-blur-xl">
+      <ol className="flex flex-col items-end gap-2.5 rounded-2xl border border-line bg-ink/75 px-2.5 py-3 opacity-60 shadow-xl shadow-black/30 backdrop-blur-xl transition-opacity duration-500 group-hover/nav:opacity-100">
         {sections.map((s, i) => {
           const on = active === s.id;
           return (
@@ -64,7 +64,7 @@ export function SectionGuide({ sections }: { sections: { id: string; label: stri
                   }`}
                 >
                   <span className="text-ember">0{i + 1}</span>
-                  <span className={`inline-block overflow-hidden align-bottom transition-all duration-500 ${on ? 'max-w-40 pl-1.5 opacity-100' : 'max-w-0 opacity-0 group-hover/nav:max-w-40 group-hover/nav:pl-1.5 group-hover/nav:opacity-100'}`}>{s.label}</span>
+                  <span className={`inline-block overflow-hidden align-bottom transition-all duration-500 max-w-0 opacity-0 group-hover/nav:max-w-40 group-hover/nav:pl-1.5 group-hover/nav:opacity-100`}>{s.label}</span>
                 </span>
                 <span className={`block h-px transition-all duration-500 ${on ? 'w-6 bg-ember' : 'w-3 bg-mute-2 group-hover:w-5 group-hover:bg-bone'}`} />
               </a>

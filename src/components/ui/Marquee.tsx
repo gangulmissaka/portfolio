@@ -40,7 +40,7 @@ export function Marquee({ items, duration = 38, className, separator = '✦' }: 
     ));
 
   return (
-    <div className={`flex overflow-clip select-none ${className ?? ''}`}>
+    <div className={`flex overflow-clip select-none [mask-image:linear-gradient(90deg,transparent,black_7%,black_93%,transparent)] ${className ?? ''}`}>
       <div ref={track} className="flex w-max shrink-0 will-change-transform">
         {row(false)}
         {row(true)}

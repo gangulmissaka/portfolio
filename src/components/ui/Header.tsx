@@ -71,9 +71,9 @@ export function Header({ account }: { account: ReactNode }) {
             <span className="grid size-9 place-items-center rounded-full bg-bone text-[0.8rem] font-semibold tracking-tight text-ink transition-transform duration-500 group-hover:rotate-[360deg]">
               {SITE.initials}
             </span>
-            <span className="hidden text-sm font-medium sm:block">
+            <span className="hidden whitespace-nowrap text-sm font-medium sm:block">
               {SITE.name}
-              <span className="text-mute"> · {SITE.role}</span>
+              <span className="hidden text-mute lg:inline"> · {SITE.role}</span>
             </span>
           </Link>
 
