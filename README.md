@@ -6,6 +6,17 @@ project reactions, a contact inbox and an admin dashboard.
 **Stack:** Next.js 16 (App Router, Cache Components) · React 19 · TypeScript · Tailwind CSS 4 · GSAP + Lenis ·
 Better Auth · Drizzle ORM · Postgres (Neon) · Resend
 
+## Live
+
+| Address | What it is |
+|---|---|
+| **https://gangulmissaka.github.io** | The public address. Forwards to the main site (old deep links forward too). |
+| **https://gangulmissaka.vercel.app** | This site, hosted on Vercel (project `missaka/gangulmissaka`) |
+| **https://gangulmissaka.github.io/valley/** | The previous 3D portfolio (repo `gangulmissaka.github.io`), linked from here |
+
+Status (2026-11-24): live and working, including Google sign-in, the members area, guestbook, reactions,
+contact form and the admin panel.
+
 ---
 
 ## Run it locally
@@ -35,31 +46,42 @@ Checks: `npx tsc --noEmit` · `npx eslint src` · `npx next build`
 
 ---
 
-## Go live (about 30 minutes, all free)
+## How it's deployed
 
-1. **Push to GitHub.** Create a new repo (e.g. `portfolio`) and push this folder.
-2. **Neon** (neon.com) → new project → copy the connection string. Tables are created automatically on first run.
-3. **Google sign-in** (console.cloud.google.com) → APIs & Services:
-   - *OAuth consent screen*: app name, your email, logo; add the privacy URL `https://<your-domain>/privacy`.
-     Only the basic `openid email profile` scopes are used, so no Google review is needed.
-   - *Credentials → Create OAuth client → Web application*. Authorised redirect URIs:
-     `https://<your-domain>/api/auth/callback/google` and `http://localhost:3000/api/auth/callback/google`.
-4. **GitHub sign-in (optional)** → github.com/settings/developers → New OAuth App, callback
-   `https://<your-domain>/api/auth/callback/github`.
-5. **Vercel** (vercel.com, sign in with GitHub) → *Add New Project* → import the repo → add the environment
-   variables below → Deploy.
-6. **Domain (recommended)**: buy `gangulmissaka.dev` (or similar) and add it in Vercel → Settings → Domains.
-   Then update `NEXT_PUBLIC_SITE_URL`, `BETTER_AUTH_URL` and the Google/GitHub redirect URIs to that domain.
-7. **Old site**: replace the `gangulmissaka.github.io` repo's `index.html` with a redirect to the new domain
-   (`<meta http-equiv="refresh" content="0; url=https://your-domain">` plus a `<link rel="canonical">`).
+- **Code:** this folder is the repo `gangulmissaka/portfolio`.
+- **Hosting:** Vercel project `missaka/gangulmissaka` (free Hobby plan). `vercel.json` marks it as a Next.js app.
+- **Database:** Neon Postgres `portfolio-db`, added through the Vercel Marketplace, which set `DATABASE_URL` and the
+  other `POSTGRES_*` / `PG*` variables. Tables are created automatically on first use.
+- **Google sign-in:** OAuth client in Google Cloud with these authorised origins/redirects:
+  `https://gangulmissaka.vercel.app` + `/api/auth/callback/google`, and `http://localhost:3000` + the same path.
+- **github.io forwarding:** the `gangulmissaka.github.io` repo publishes the 3D site under `/valley/` and a root
+  `index.html` / `404.html` that forward here. The target is the repository variable `MAIN_SITE_URL`.
+
+**Deploying an update** (run in PowerShell from this folder; Git Bash's `npx` can't find Node on this PC):
+
+```powershell
+git push                                  # keep GitHub up to date
+npx vercel@latest deploy --prod --yes     # build and publish on Vercel
+```
+
+To deploy automatically on every `git push` instead, connect the repo in Vercel → Project → Settings → Git
+(it needs the Vercel GitHub app to be allowed once).
+
+**Changing the address** (e.g. a custom domain like `gangulmissaka.dev`): add the domain in Vercel → Settings →
+Domains, then update together: `NEXT_PUBLIC_SITE_URL` and `BETTER_AUTH_URL` on Vercel, the Google OAuth origins and
+redirect URIs, and the `MAIN_SITE_URL` variable of the `gangulmissaka.github.io` repo (then re-run its workflow).
+Redeploy afterwards.
 
 ### Environment variables (Vercel → Settings → Environment Variables)
 
+Set for Production and Preview. Secret values live only on Vercel and in your local `.env.local` (never in git).
+
 | Variable | Required | What it is |
 |---|---|---|
-| `NEXT_PUBLIC_SITE_URL`, `BETTER_AUTH_URL` | ✅ | `https://your-domain` (no trailing slash) |
+| `NEXT_PUBLIC_SITE_URL`, `BETTER_AUTH_URL` | ✅ | `https://gangulmissaka.vercel.app` (no trailing slash) |
 | `BETTER_AUTH_SECRET` | ✅ | Random 32 bytes: `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` |
-| `DATABASE_URL` | ✅ | Neon connection string |
+| `DATABASE_URL` | ✅ | Neon connection string (set by the Neon integration) |
+| `NEXT_PUBLIC_VALLEY_URL` | optional | Where "3D world" links go; defaults to `https://gangulmissaka.github.io/valley/` |
 | `ADMIN_EMAILS` | ✅ | `missakabro@gmail.com`: the only account that gets the Admin button and `/admin` |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | ✅ | Google sign-in |
 | `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | optional | GitHub sign-in |
@@ -93,7 +115,8 @@ Photos are in `src/assets/me`, project images in `src/assets/work`; project cove
 
 ```
 src/app/                  pages (home, work, work/[slug], about, contact, guestbook, cv, privacy, admin) + API routes
-src/components/home/      Hero (+ WebGL HeroShader), FeaturedWork card stack, ProcessScroller, NowStrip
+src/components/home/      Hero (+ WebGL HeroShader), FeaturedWork card stack, ProcessScroller, NowStrip, ValleyInvite (3D link)
+src/components/admin/     Admin panel tabs, user/guestbook/message actions
 src/components/motion/    SmoothScroll, reveals, RollText, ScrollProgress, SectionGuide, CountUp, Spotlight
 src/components/ui/        Header, Footer, Cursor, Preloader, CommandPalette (⌘K), Marquee …
 src/app/signin, account/  Google sign-in page and the members area
