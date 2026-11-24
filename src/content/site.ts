@@ -35,12 +35,16 @@ export const NAV = [
 export const STATEMENT =
   'I build software that feels considered: a horror game you finish with your own voice, a photo organiser that never loses a file, and a tool that turns equations into film. Thoughtful engineering, carefully finished.';
 
+/** Order here is the order of the filter chips on /work. */
+export const CATEGORIES = ['Web', 'Mobile app', 'Desktop app', 'Game', 'Architecture & QA', 'Project leadership', 'Networking'] as const;
+export type Category = (typeof CATEGORIES)[number];
+
 export type Project = {
   slug: string;
   title: string;
   kicker: string;
   summary: string;
-  category: 'Game' | 'Desktop app' | 'Web' | 'Networking';
+  category: Category;
   year: string;
   role: string;
   platform: string;
@@ -116,6 +120,34 @@ export const PROJECTS: Project[] = [
     featured: true,
   },
   {
+    slug: 'medfinder',
+    title: 'MedFinder LK',
+    kicker: 'Upload a prescription, find the pharmacy that has it',
+    summary:
+      'A web app where customers upload a prescription, the medicines are read from the photo automatically, and nearby pharmacies reply with what they have in stock.',
+    category: 'Web',
+    year: '2026',
+    role: 'Solo developer',
+    platform: 'Node.js + Leaflet',
+    status: 'Working prototype',
+    tint: '#14a37f',
+    overview: [
+      'Finding a medicine often means calling pharmacy after pharmacy. MedFinder LK turns that around: a customer uploads a photo of the prescription, the app reads the medicines from it, and nearby pharmacies mark which ones they have.',
+      'There are three roles. Customers post requests and see the replies on a map, pharmacies answer the requests around them, and admins approve new pharmacies and manage users. It runs on a completely free stack with no paid APIs.',
+    ],
+    challenge:
+      'Reading handwriting. Doctors’ prescriptions defeat ordinary OCR, so the app first asks a local vision model to read the image, falls back to Tesseract when that is not available, and then cleans the result against a list of known medicine names.',
+    highlights: [
+      { title: 'AI prescription reading', body: 'A local vision model through Ollama reads the prescription, with Tesseract OCR as the fallback. Customers can correct the list or rescan.' },
+      { title: 'Forgiving medicine matching', body: 'Fuzzy matching against a medicine list turns small reading mistakes into the right medicine name.' },
+      { title: 'Pharmacies near you', body: 'Haversine distance finds pharmacies around the customer, shown on an OpenStreetMap map with Leaflet.' },
+      { title: 'Role-based access', body: 'JWT sign-in with hashed passwords and three roles. New pharmacies only go live after an admin approves them.' },
+    ],
+    stack: ['Node.js', 'Express', 'SQLite', 'Ollama vision model', 'Tesseract.js', 'Leaflet + OpenStreetMap', 'JWT'],
+    links: [],
+    featured: false,
+  },
+  {
     slug: 'manimdesk',
     title: 'ManimDesk',
     kicker: 'Maths animations without the command line',
@@ -147,6 +179,88 @@ export const PROJECTS: Project[] = [
     featured: true,
   },
   {
+    slug: 'dads-assistant',
+    title: 'Dad’s Assistant',
+    kicker: 'One app for his medicines, bills, car and documents',
+    summary:
+      'An Android app I built for my dad: health, bills, expenses, his vehicle and his documents in one place, with reminders that arrive on time and an AI helper that works offline.',
+    category: 'Mobile app',
+    year: '2026',
+    role: 'Solo developer: design, build, support',
+    platform: 'Android · Capacitor',
+    status: 'Personal project · APK',
+    tint: '#e2683c',
+    overview: [
+      'My dad keeps track of medicines, doctor visits, bills, renewals and a vehicle. I built him one app for all of it, tuned for his Samsung phone.',
+      'It has five sections (Health, Bills & Renewals, Expenses, Vehicle and Documents) plus emergency information and an offline AI helper. Everything stays on the phone and works without internet, with an optional PIN lock and backup.',
+    ],
+    challenge:
+      'Designing for one real person who is not a tech user: large clear screens, reminders that actually arrive on a Samsung phone, and nothing that needs an account or a connection.',
+    highlights: [
+      { title: 'Health', body: 'Medicine reminders with a ✓ Taken button, a tablet count with low-stock alerts, BP, sugar and weight charts, appointments and a summary to send to the doctor.' },
+      { title: 'Bills that roll over', body: 'Reminders 7 days before, a day before and on the day. Repeating bills move to the next date when he marks them as paid.' },
+      { title: 'Offline AI helper', body: 'Corin runs Google’s Gemma 3 1B model on the phone through MediaPipe, with no internet at all.' },
+      { title: 'Companion app: Speed Boost', body: 'A small Kotlin app that keeps his phone responsive while he drives for a ride-hailing app, then restores his settings afterwards.' },
+    ],
+    stack: ['JavaScript', 'Capacitor', 'Android', 'Local notifications', 'MediaPipe + Gemma 3 1B', 'Kotlin'],
+    links: [],
+    featured: false,
+  },
+  {
+    slug: 'fraud-detection-architecture',
+    title: 'Fraud Detection Architecture',
+    kicker: 'Designing a crypto fraud detection system, decision by decision',
+    summary:
+      'The software architecture for a cryptocurrency fraud detection system, from requirements and quality attributes to component, module, deployment and sequence views.',
+    category: 'Architecture & QA',
+    year: '2026',
+    role: 'Project manager & team lead (requirements) · solo (architecture)',
+    platform: 'UML · draw.io · Visio',
+    status: 'Completed · ECU Software Architecture',
+    tint: '#7c5cff',
+    overview: [
+      'A fintech company needs to catch fraudulent cryptocurrency transactions quickly enough to stop them. This project designed that system’s architecture in two stages.',
+      'First, leading the team as project manager, we defined 35 functional requirements across seven modules, 25 measurable quality targets and eight quality attribute scenarios, and I drew the use case model. Then I designed the architecture myself with Attribute-Driven Design (ADD 3.0): a base component-and-connector view that serves every use case, refined in an iteration focused on performance.',
+    ],
+    challenge:
+      'Fraud checks sit in the path of every transaction, so they have to be fast without letting anything through. Every design decision had to trace back to a measurable quality scenario, not a hunch.',
+    highlights: [
+      { title: 'Requirements you can test', body: '35 functional requirements and 25 quality targets, each written so it can be measured, plus 11 constraints and 11 architectural concerns.' },
+      { title: 'Use case model', body: 'A UML use case diagram covering all 35 use cases, refined over several versions with the team.' },
+      { title: 'Attribute-Driven Design', body: 'Iterations that pick drivers, choose tactics from established tactic trees and record every new element and interface.' },
+      { title: 'Four views', body: 'Component-and-connector, module, deployment and sequence views, with a Kanban board tracking design progress.' },
+    ],
+    stack: ['ADD 3.0', 'UML', 'Quality attribute scenarios', 'Utility trees', 'draw.io', 'Visio'],
+    links: [],
+    featured: false,
+  },
+  {
+    slug: 'mcp-control',
+    title: 'MCP Control',
+    kicker: 'A switchboard for the tools an AI agent can use',
+    summary:
+      'A Windows app that switches MCP servers on and off for Claude Code, including my own servers that let an AI agent work in Microsoft Project and draw UML diagrams in draw.io.',
+    category: 'Desktop app',
+    year: '2026',
+    role: 'Solo developer',
+    platform: 'Windows · Python',
+    status: 'In use',
+    tint: '#d4a017',
+    overview: [
+      'The Model Context Protocol lets AI agents use real tools. MCP Control is a small local app with one card per server: switch it on and Claude Code can use that tool, switch it off and it is gone.',
+      'It ships with three servers I wrote: one that automates desktop Microsoft Project, one for Sri Lankan calendars and holidays, and one that builds UML diagrams in draw.io.',
+    ],
+    highlights: [
+      { title: 'One switch per server', body: 'Registers or removes each server with Claude Code, backing up the config first and keeping the last ten backups.' },
+      { title: 'Read-only mode', body: 'Hides every write tool, so the agent can look at a schedule but never change it.' },
+      { title: 'Test connection', body: 'Starts the server exactly as Claude Code would and lists the tools it offers.' },
+      { title: 'UML in draw.io', body: '19 tools for use case, class, sequence, deployment and other UML diagrams, laid out automatically.' },
+    ],
+    stack: ['Python', 'Model Context Protocol', 'COM automation', 'Microsoft Project', 'draw.io', 'Claude Code'],
+    links: [],
+    featured: false,
+  },
+  {
     slug: 'this-website',
     title: 'This website',
     kicker: 'A portfolio engineered like a product',
@@ -155,7 +269,7 @@ export const PROJECTS: Project[] = [
     category: 'Web',
     year: '2026',
     role: 'Design & full-stack development',
-    platform: 'Web · Vercel',
+    platform: 'Next.js · Vercel',
     status: 'Live',
     tint: '#f08a3c',
     overview: [
@@ -175,6 +289,187 @@ export const PROJECTS: Project[] = [
       { label: 'Drive the previous 3D version', url: SITE.valleyUrl },
     ],
     featured: true,
+  },
+  {
+    slug: 'tic-tac-tactics',
+    title: 'Tic Tac Tactics',
+    kicker: 'Noughts and crosses against an AI that never loses',
+    summary: 'A Flutter game with three AI difficulty levels, a move timer, player stats, coins, board skins and a lucky spin.',
+    category: 'Mobile app',
+    year: '2025',
+    role: 'Solo developer',
+    platform: 'Flutter · Android',
+    status: 'APK built',
+    tint: '#3d7cf0',
+    overview: [
+      'A polished take on the oldest game there is. Pick a difficulty and play the phone: on hard it uses the minimax algorithm, so the best you can manage is a draw.',
+      'Wins earn coins that unlock board skins or a lucky spin, and stats follow your record over time. The app uses an MVVM structure with Provider for state and keeps progress on the device.',
+    ],
+    highlights: [
+      { title: 'Three levels of AI', body: 'Easy plays random moves, medium alternates random and perfect moves, and hard always plays the minimax best move.' },
+      { title: 'MVVM architecture', body: 'Models, views and view models are kept apart, with Provider driving the UI from game state.' },
+      { title: 'Reward loop', body: 'Coins, unlockable skins and a lucky spin give players a reason to come back.' },
+      { title: 'Saved progress', body: 'Stats and unlocks persist on the device with SharedPreferences.' },
+    ],
+    stack: ['Flutter', 'Dart', 'Provider', 'SharedPreferences', 'Minimax'],
+    links: [],
+    featured: false,
+  },
+  {
+    slug: 'myquote',
+    title: 'MyQuote',
+    kicker: 'A Ruby on Rails home for philosophers’ quotes',
+    summary: 'A Rails web app for collecting and browsing quotes by philosopher and category, with user accounts, private or public quotes and an admin area.',
+    category: 'Web',
+    year: '2026',
+    role: 'Solo developer',
+    platform: 'Ruby on Rails',
+    status: 'Completed · ECU Applications Development',
+    tint: '#c0392b',
+    overview: [
+      'MyQuote lets people browse quotes by philosopher and category, sign up, add their own quotes and choose whether each one is public or private. Admins manage users and content from their own area.',
+      'I designed the database first (users, philosophers, quotes, categories and the many-to-many link between quotes and categories), then built the app in Rails with seed data so it starts full of real quotes.',
+    ],
+    highlights: [
+      { title: 'Database design', body: 'An ERD with a join table so one quote can sit in many categories, enforced with model validations.' },
+      { title: 'Accounts from scratch', body: 'Registration, login and sessions built by hand with secure password hashing, plus user profiles.' },
+      { title: 'Admin area', body: 'A separate admin dashboard for managing users and the site’s content.' },
+      { title: 'Seeded content', body: 'Seed scripts load philosophers, categories and quotes in the right order for a ready-to-use app.' },
+    ],
+    stack: ['Ruby on Rails', 'Ruby', 'SQLite', 'ERB views', 'MVC'],
+    links: [],
+    featured: false,
+  },
+  {
+    slug: 'power-hive',
+    title: 'Power Hive',
+    kicker: 'Community batteries to ease Colombo’s peak-hour grid',
+    summary:
+      'A smart-grid proposal for Colombo: shared community batteries and an app that nudges households to use power off-peak, planned as a public-private partnership.',
+    category: 'Project leadership',
+    year: '2026',
+    role: 'Project manager & team lead · team of 4',
+    platform: 'MS Project · research & pitch',
+    status: 'Completed · ECU Project Methods',
+    tint: '#f2b705',
+    overview: [
+      'Colombo’s electricity demand is rising fast, and rooftop solar only helps at peak time if it can be stored. Power Hive proposes eight community batteries (8 MWh in total) that store local solar, plus an AI-driven app that nudges households to run heavy appliances off-peak.',
+      'As project manager I led the team through the full planning cycle: the project charter, stakeholder analysis, team contract, a Microsoft Project schedule, a research report on global best practice, and the final pitch.',
+    ],
+    challenge:
+      'Making a big infrastructure idea credible. Every claim is backed by Ceylon Electricity Board figures and real community battery trials, and the partnership model spells out who is accountable for what.',
+    highlights: [
+      { title: 'Evidence first', body: 'Built on national data: Colombo’s electricity sales grew 10.7% in 2024, and the day peak is projected to reach 3,006 MW by 2027.' },
+      { title: 'Partnership model', body: 'A government-sponsored, privately delivered pilot with clear roles for the ministry, the utility and the operator.' },
+      { title: 'Planned in MS Project', body: 'Phases, milestones and dependencies scheduled and tracked as a real project plan.' },
+      { title: 'The pitch', body: 'A 12-minute, 13-slide presentation shared across four speakers.' },
+    ],
+    stack: ['Microsoft Project', 'Project charter', 'Stakeholder analysis', 'Research report', 'PowerPoint'],
+    links: [],
+    featured: false,
+  },
+  {
+    slug: 'hornet-finder',
+    title: 'Hornet Finder',
+    kicker: 'Reading hundreds of bike ads so I did not have to',
+    summary:
+      'A desktop tool that collects Honda Hornet ads from a Sri Lankan marketplace, removes the wrong models and uses a local Gemma model to read and rank the rest.',
+    category: 'Desktop app',
+    year: '2026',
+    role: 'Solo developer',
+    platform: 'Windows · Python',
+    status: 'Personal tool',
+    tint: '#e23b3b',
+    overview: [
+      'Hornet listings mix Japanese 250s with Indian CB Hornets, reposts and ads that hide problems in the description. This tool does the reading.',
+      'It finds every Hornet ad, saves each page once, removes the wrong models and duplicates, and then a local Gemma model reads each description in English, Sinhala or Singlish for accidents, missing papers, repainting, modifications and other red flags before ranking the bikes.',
+    ],
+    highlights: [
+      { title: 'A local LLM that reads Singlish', body: 'Gemma through Ollama analyses every description on the PC, with no cloud service.' },
+      { title: 'Filters with reasons', body: 'Every skipped ad is listed with why it was removed, so nothing disappears silently.' },
+      { title: 'Gentle on the website', body: 'One request at a time with a pause between ads, no page downloaded twice, and a full stop as soon as the site asks for one.' },
+      { title: 'No guessed numbers', body: 'Missing prices stay “Negotiable”. The ranking only uses what the ad actually says.' },
+    ],
+    stack: ['Python', 'Tkinter', 'Ollama', 'Gemma', 'Web scraping', 'HTML parsing'],
+    links: [],
+    featured: false,
+  },
+  {
+    slug: 'coming-soon',
+    title: 'ComingSoon',
+    kicker: 'A 2D platformer with combat and parkour',
+    summary: 'A side-scrolling Unity game: a warrior fights skeletons and climbs through the level, scored on time, coins and health.',
+    category: 'Game',
+    year: '2026',
+    role: 'Solo developer',
+    platform: 'Unity 2022.3 · PC',
+    status: 'Completed · ECU Game Development',
+    tint: '#5aa86a',
+    overview: [
+      'Players guide a warrior through obstacles and enemies to the finish, earning a score from the time taken, coins collected and health left.',
+      'Movement goes well beyond run and jump: grab and release ledges, crouch-slide, dash, and light or heavy attacks. Levels have more than one path, crates to push and parallax backgrounds, all wrapped in menus, a level selector, settings and a HUD. The art comes from third-party asset packs.',
+    ],
+    highlights: [
+      { title: 'Parkour movement', body: 'Ledge grabs, crouch slides and dashes on top of smooth platformer physics.' },
+      { title: 'Combat', body: 'Light and heavy attacks against enemies, with health and lives on the HUD.' },
+      { title: 'Level design', body: 'Multiple routes, movable crates and collectible coins that reward exploring.' },
+      { title: 'A complete game', body: 'Main menu, level selector, pause menu, settings, scores and sound.' },
+    ],
+    stack: ['Unity 2022.3', 'C#', '2D physics', 'Animator', 'Parallax'],
+    links: [],
+    featured: false,
+  },
+  {
+    slug: 'scheduler-testing',
+    title: 'Testing a Scheduler',
+    kicker: 'Finding the bugs before users do',
+    summary:
+      'A structured test campaign on a Python meeting scheduler: black-box and white-box test design, automated pytest suites and a verdict on every reported defect.',
+    category: 'Architecture & QA',
+    year: '2026',
+    role: 'Project manager & team lead',
+    platform: 'Python · pytest',
+    status: 'Completed · ECU Software Testing',
+    tint: '#22a6b3',
+    overview: [
+      'Our team was handed a prototype meeting scheduler, with its source code and little documentation, and asked to test it the way a professional QA team would.',
+      'Black-box tests drove the system through its menu using only the specification, with equivalence classes, boundary values and pairwise combinations. White-box tests used control-flow graphs, cyclomatic complexity and branch coverage of the calendar logic. Everything was automated in pytest, and each of the seven defects reported by the previous team was confirmed or ruled out.',
+      'As project manager I split the work, ran the meetings and kept the minutes, and kept the plan on schedule.',
+    ],
+    highlights: [
+      { title: 'Specification-based tests', body: 'Equivalence classes, boundary values and pairwise combinations for every menu option and input.' },
+      { title: 'Code-based coverage', body: 'Control-flow graphs and cyclomatic complexity to choose paths, measured with branch coverage.' },
+      { title: 'Automated in pytest', body: 'Repeatable suites that any developer can run after every change.' },
+      { title: 'Defect verdicts', body: 'Each of the seven reported defects was reproduced and confirmed, or shown not to occur.' },
+    ],
+    stack: ['Python', 'pytest', 'Equivalence partitioning', 'Boundary value analysis', 'Control-flow graphs', 'Branch coverage'],
+    links: [],
+    featured: false,
+  },
+  {
+    slug: 'perfume-explorer',
+    title: 'Perfume Explorer',
+    kicker: 'Searching thousands of fragrances from the command line',
+    summary: 'A C++ console app that loads a large fragrance dataset and answers questions about it: search, oldest, top rated by gender and more.',
+    category: 'Desktop app',
+    year: '2026',
+    role: 'Solo developer',
+    platform: 'C++ · console',
+    status: 'Completed · ECU OOP with C++',
+    tint: '#b565d9',
+    overview: [
+      'The program reads a large semicolon-separated file of perfumes (brand, country, gender, year, ratings, notes, perfumers and main accords) into memory and turns it into a small interactive tool.',
+      'From a menu you can search for a fragrance, find the oldest one, see the top five for men, women and unisex, find the longest name, and see the ten countries with the most fragrances. Real-world data needed care: decimal commas in ratings, missing values and inconsistent text.',
+    ],
+    highlights: [
+      { title: 'Careful parsing', body: 'Handles decimal commas, blank fields and unknown values without crashing or skewing results.' },
+      { title: 'Forgiving search', body: 'Input and data are normalised, so case and stray spaces never hide a match.' },
+      { title: 'Rankings', body: 'Top five by rating for each gender and a country count with the top ten.' },
+      { title: 'Clean structure', body: 'One struct per perfume, small single-purpose functions and a documented header for each.' },
+    ],
+    stack: ['C++', 'STL', 'File I/O', 'Structs', 'Visual Studio'],
+    links: [],
+    featured: false,
   },
   {
     slug: 'network-design',
@@ -231,10 +526,10 @@ export const PROCESS = [
 ];
 
 export const CAPABILITIES = [
-  { title: 'Software engineering', items: ['Programming & OOP', 'Object-oriented design', 'Data structures & algorithms', 'Systems analysis', 'Git & version control'] },
-  { title: 'Product & web', items: ['Next.js & React', 'TypeScript', 'Tailwind CSS', 'Motion & interaction design', 'Desktop apps in Python'] },
-  { title: 'Games & AI', items: ['Unity 6 & C#', 'AI pathfinding', 'Event systems', 'On-device speech recognition', 'AI agents & MCP'] },
-  { title: 'Data, networks & security', items: ['SQL & database design', 'Networking: VLANs, EIGRP', 'Cybersecurity fundamentals', 'Operating systems', 'Technical support'] },
+  { title: 'Software engineering', items: ['Programming & OOP (C++, C#, Python)', 'Software architecture (ADD, UML)', 'Requirements engineering', 'Software testing & pytest', 'Git & version control'] },
+  { title: 'Product & web', items: ['Next.js & React', 'Node.js & Express', 'Ruby on Rails', 'TypeScript & Tailwind CSS', 'Desktop apps in Python'] },
+  { title: 'Mobile, games & AI', items: ['Flutter & Kotlin (Android)', 'Unity & C#', 'Local LLMs (Ollama, Gemma)', 'On-device speech recognition', 'AI agents & MCP'] },
+  { title: 'Leading & delivering', items: ['Project management (MS Project)', 'Team leadership', 'SQL & database design', 'Networking: VLANs, EIGRP', 'Cybersecurity fundamentals'] },
 ];
 
 export const EDUCATION = [

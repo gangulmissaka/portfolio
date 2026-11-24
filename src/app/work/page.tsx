@@ -18,7 +18,7 @@ export default function WorkPage() {
         <PageHeader
           eyebrow={`Index · ${PROJECTS.length} projects`}
           title={<>Selected <span className="serif-i text-ember">work</span></>}
-          intro="Games that listen, desktop apps people actually download, and the networks and websites in between. Hover a project to preview it; open one for the full story."
+          intro="Games that listen, apps for the web, phones and desktops, and the architecture, testing and team leadership behind them. Hover a project to preview it; open one for the full story."
         />
         <section className="container-x pb-32" aria-label="Projects">
           <WorkList projects={PROJECTS} />

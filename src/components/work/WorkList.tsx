@@ -2,18 +2,20 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState, ViewTransition } from 'react';
-import type { Project } from '@/content/site';
+import { CATEGORIES, type Project } from '@/content/site';
 import { gsap, isTouch } from '@/lib/gsap';
 import { ProjectCover } from './ProjectCover';
 
-const FILTERS = ['All', 'Game', 'Desktop app', 'Web', 'Networking'] as const;
+type Filter = 'All' | Project['category'];
 
 /**
  * Index of projects as big typographic rows. On desktop a cover floats after the cursor while you hover a row;
  * on touch devices each row shows its cover inline.
  */
 export function WorkList({ projects }: { projects: Project[] }) {
-  const [filter, setFilter] = useState<(typeof FILTERS)[number]>('All');
+  const [filter, setFilter] = useState<Filter>('All');
+  // only offer categories that have at least one project
+  const filters: Filter[] = ['All', ...CATEGORIES.filter((c) => projects.some((p) => p.category === c))];
   const [hover, setHover] = useState<string | null>(null);
   const preview = useRef<HTMLDivElement>(null);
   const shown = projects.filter((p) => filter === 'All' || p.category === filter);
@@ -44,7 +46,7 @@ export function WorkList({ projects }: { projects: Project[] }) {
   return (
     <div>
       <div role="tablist" aria-label="Filter projects" className="mb-8 flex flex-wrap gap-2">
-        {FILTERS.map((f) => {
+        {filters.map((f) => {
           const count = f === 'All' ? projects.length : projects.filter((p) => p.category === f).length;
           return (
             <button

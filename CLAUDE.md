@@ -18,6 +18,9 @@ building while the dev server runs is fine).
 - **Content** is only in `src/content/site.ts` (incl. `MEMBER_FEATURES` for the members area). The user asked
   for no em dashes anywhere in site text and no AI assistant. Never invent facts (dates, employers, metrics); the
   user's real details come from `../Gangul_Missaka_Details.docx`.
+- **Project visuals**: each project's cover is art built in code in `components/work/ProjectCover.tsx` (one `case` per slug).
+  Real screenshots go in `components/work/gallery.ts`. University work is described, never published (no briefs, unit
+  code/data or reports). The user was project manager / team lead in every group project.
 - **Cache Components is on.** Anything reading cookies/headers/the session must sit inside `<Suspense>`.
   `getCurrentUser()` calls `connection()` first because Better Auth reads the clock. In `catch` blocks around
   request-time work, call `unstable_rethrow(e)` first or Next's prerender signals get swallowed.

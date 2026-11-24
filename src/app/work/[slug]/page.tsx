@@ -3,11 +3,11 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Suspense, ViewTransition } from 'react';
-import manimInstaller from '@/assets/work/manimdesk-installer.png';
 import { PROJECTS, getProject } from '@/content/site';
 import { ProjectCover } from '@/components/work/ProjectCover';
 import { FadeUp, SplitReveal } from '@/components/motion/Reveal';
 import { VideoEmbed } from '@/components/work/VideoEmbed';
+import { GALLERY } from '@/components/work/gallery';
 import { Reactions } from '@/components/work/Reactions';
 import { pageTransition } from '@/lib/transitions';
 
@@ -131,12 +131,18 @@ async function CaseStudy({ params }: { params: PageProps<'/work/[slug]'>['params
           </ol>
         </section>
 
-        {p.slug === 'manimdesk' && (
-          <section className="container-x pb-24" aria-label="Screenshot">
-            <FadeUp className="mx-auto max-w-2xl overflow-hidden rounded-2xl border border-line">
-              <Image src={manimInstaller} alt="ManimDesk’s Install Requirements window" placeholder="blur" sizes="(min-width: 768px) 42rem, 100vw" className="w-full" />
-            </FadeUp>
-            <p className="mt-3 text-center text-sm text-mute">The one-click installer: a private Python, Manim and LaTeX in a folder you choose.</p>
+        {GALLERY[p.slug] && (
+          <section className="container-x pb-24" aria-label="Screenshots">
+            <div className={`grid gap-6 ${GALLERY[p.slug].length > 1 ? 'md:grid-cols-2' : 'mx-auto max-w-2xl'}`}>
+              {GALLERY[p.slug].map((shot, i) => (
+                <FadeUp as="figure" key={shot.caption} delay={(i % 2) * 0.08} className={GALLERY[p.slug].length > 2 && i === 0 ? 'md:col-span-2' : ''}>
+                  <div className="overflow-hidden rounded-2xl border border-line">
+                    <Image src={shot.src} alt={shot.alt} placeholder="blur" sizes={GALLERY[p.slug].length > 2 && i === 0 ? '100vw' : '(min-width: 768px) 50vw, 100vw'} className="w-full" />
+                  </div>
+                  <figcaption className="mt-3 text-sm text-mute">{shot.caption}</figcaption>
+                </FadeUp>
+              ))}
+            </div>
           </section>
         )}
 
