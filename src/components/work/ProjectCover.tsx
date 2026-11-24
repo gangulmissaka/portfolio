@@ -366,6 +366,136 @@ export function ProjectCover({ slug, priority = false, sizes = '(min-width: 768p
         </div>
       );
 
+    case 'nulldle': {
+      const rows = [
+        ['C', 'R', 'A', 'N', 'E'],
+        ['S', 'L', 'A', 'T', 'E'],
+        ['P', 'L', 'A', 'N', 'T'],
+      ];
+      const marks = [
+        ['n', 'n', 'g', 'g', 'n'],
+        ['n', 'g', 'g', 'y', 'n'],
+        ['g', 'g', 'g', 'g', 'g'],
+      ];
+      const col: Record<string, string> = { g: '#3fbf6e', y: '#e8b923', n: '#3a2a33' };
+      return (
+        <div className={wrap} style={{ ...base, background: 'radial-gradient(100% 100% at 50% 0%, #ff6fa3 0%, #8c1f4c 42%, #17050d 100%)' }}>
+          <div className="absolute left-1/2 top-[50%] grid -translate-x-1/2 -translate-y-1/2 gap-[1.2cqw]">
+            {rows.map((r, i) => (
+              <div key={i} className="flex gap-[1.2cqw]">
+                {r.map((ch, j) => (
+                  <span key={j} className="grid size-[8.4cqw] place-items-center rounded-[0.8cqw] text-[4.4cqw] font-bold text-white shadow-[0_1cqw_2cqw_rgb(0_0_0/0.35)]" style={{ background: col[marks[i][j]] }}>{ch}</span>
+                ))}
+              </div>
+            ))}
+          </div>
+          <span className={`absolute left-[5cqw] top-[5cqw] ${mono} uppercase tracking-[0.2em] text-[#ffd0e1]`}>6 tries · 1 word</span>
+          <span className={`absolute bottom-[5cqw] right-[5cqw] rounded-full bg-white/90 px-[1.6cqw] py-[0.6cqw] ${mono} text-[#8c1f4c]`}>MVVM · unit tested</span>
+        </div>
+      );
+    }
+
+    case 'sports-association-system': {
+      const actors = [[10, 30, 'Student'], [10, 70, 'Committee'], [90, 50, 'Admin']] as const;
+      const cases = [[50, 18, 'Apply for membership'], [50, 38, 'Join an event'], [50, 58, 'Manage sports clubs'], [50, 78, 'Generate report']] as const;
+      const links = [[0, 0], [0, 1], [1, 2], [1, 1], [2, 2], [2, 3]] as const;
+      return (
+        <div className={wrap} style={{ ...base, background: 'radial-gradient(110% 100% at 50% 0%, #2fbf6f 0%, #0f5230 42%, #04140b 100%)' }}>
+          <div className="absolute inset-y-[8%] left-[24%] right-[24%] rounded-[2cqw] border border-[#9ff0c2]/40" />
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden>
+            {links.map(([a, c], i) => (
+              <line key={i} x1={actors[a][0] + (actors[a][0] < 50 ? 4 : -4)} y1={actors[a][1]} x2={cases[c][0] + (actors[a][0] < 50 ? -15 : 15)} y2={cases[c][1]} stroke="#9ff0c2" strokeOpacity=".55" strokeWidth=".4" vectorEffect="non-scaling-stroke" />
+            ))}
+          </svg>
+          {cases.map(([x, y, label]) => (
+            <div key={label} className={`absolute grid h-[7cqw] w-[30%] -translate-x-1/2 -translate-y-1/2 place-items-center rounded-[50%] border border-[#9ff0c2]/70 bg-[#0b3a22] text-center ${mono} text-[#dcffe9]`} style={{ left: `${x}%`, top: `${y}%` }}>{label}</div>
+          ))}
+          {actors.map(([x, y, label]) => (
+            <div key={label} className="absolute flex -translate-x-1/2 -translate-y-1/2 flex-col items-center" style={{ left: `${x}%`, top: `${y}%` }}>
+              <svg viewBox="0 0 20 30" className="h-[7cqw] w-[4.6cqw]" aria-hidden>
+                <circle cx="10" cy="5" r="4" fill="none" stroke="#dcffe9" strokeWidth="1.5" />
+                <path d="M10 9v11M3 13h14M10 20l-6 9M10 20l6 9" stroke="#dcffe9" strokeWidth="1.5" fill="none" />
+              </svg>
+              <span className={`${mono} text-[#dcffe9]`}>{label}</span>
+            </div>
+          ))}
+          <span className={`absolute left-[26%] top-[3cqw] ${mono} uppercase tracking-[0.2em] text-[#9ff0c2]`}>Sports Association System</span>
+        </div>
+      );
+    }
+
+    case 'continuum':
+      return (
+        <div className={wrap} style={{ ...base, background: 'linear-gradient(180deg, #ff9f43 0%, #e8590c 30%, #3b1d5e 62%, #0b0718 100%)' }}>
+          <div className="absolute left-1/2 top-[30%] size-[22cqw] -translate-x-1/2 rounded-full bg-[#ffd8a8] opacity-80 blur-[0.4cqw]" />
+          <div className="absolute inset-x-0 top-[44%] h-[6cqw]" style={{ background: 'linear-gradient(90deg, #c2410c 0 18%, transparent 18% 22%, #f2cc8f 22% 40%, transparent 40% 60%, #e7f5ff 60% 82%, transparent 82%)', opacity: 0.35, clipPath: 'polygon(0 100%, 6% 30%, 12% 70%, 20% 10%, 30% 80%, 42% 20%, 55% 75%, 66% 15%, 78% 70%, 88% 25%, 100% 90%, 100% 100%)' }} />
+          <div className="absolute inset-x-0 bottom-0 h-[56%]" style={{ background: 'linear-gradient(180deg, #2b2440, #0c0a14)', clipPath: 'polygon(46% 0, 54% 0, 100% 100%, 0 100%)' }} />
+          {[0, 1, 2, 3, 4].map((i) => (
+            <div key={i} className="absolute left-1/2 -translate-x-1/2 bg-[#ffd166]" style={{ top: `${48 + i * 10}%`, width: `${0.6 + i * 0.5}cqw`, height: `${2 + i * 1.6}cqw` }} />
+          ))}
+          <div className="absolute bottom-[8%] left-[56%] h-[7cqw] w-[11cqw] rounded-[1.2cqw_1.2cqw_0.6cqw_0.6cqw] bg-[#ff3b3b] shadow-[0_0_3cqw_#ff3b3b]" />
+          <div className="absolute bottom-[34%] left-[46%] h-[2.6cqw] w-[4cqw] rounded-[0.5cqw] bg-[#4dabf7] opacity-90" />
+          <div className="absolute right-[8cqw] top-[30%] size-[9cqw] rounded-full border-[0.6cqw] border-[#b197fc] shadow-[0_0_4cqw_#b197fc,inset_0_0_3cqw_#b197fc]" />
+          <div className={`absolute left-[5cqw] top-[5cqw] flex gap-[1cqw] ${mono} uppercase tracking-[0.18em] text-white/90`}>
+            {['Desert', 'City', 'Snow'].map((t) => <span key={t} className="rounded-full border border-white/30 bg-black/25 px-[1.4cqw] py-[0.5cqw] backdrop-blur">{t}</span>)}
+          </div>
+          <span className={`absolute bottom-[5cqw] left-[5cqw] ${mono} text-[#ffe8cc]`}>NITRO ▮▮▮▯ · crash = shrink</span>
+        </div>
+      );
+
+    case 'tethered': {
+      const pts = [[22, 34], [40, 22], [58, 40], [36, 62], [70, 66], [80, 30]] as const;
+      const links = [[0, 1], [1, 2], [2, 3], [3, 0], [2, 4], [2, 5]] as const;
+      return (
+        <div className={wrap} style={{ ...base, background: 'radial-gradient(90% 80% at 50% 60%, #2a1a3d 0%, #120b1f 55%, #05030a 100%)' }}>
+          <div className="absolute inset-0 opacity-30" style={{ backgroundImage: 'linear-gradient(rgb(33 230 193 / .18) 1px, transparent 1px), linear-gradient(90deg, rgb(33 230 193 / .18) 1px, transparent 1px)', backgroundSize: '6cqw 6cqw', transform: 'perspective(60cqw) rotateX(55deg) scale(1.6)', transformOrigin: '50% 100%' }} />
+          <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full" aria-hidden>
+            {links.map(([a, b], i) => (
+              <line key={i} x1={pts[a][0]} y1={pts[a][1]} x2={pts[b][0]} y2={pts[b][1]} stroke={i > 3 ? '#ff4fd8' : '#21e6c1'} strokeWidth="0.6" vectorEffect="non-scaling-stroke" style={{ filter: `drop-shadow(0 0 4px ${i > 3 ? '#ff4fd8' : '#21e6c1'})` }} />
+            ))}
+          </svg>
+          {pts.map(([x, y], i) => (
+            <div key={i} className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: `${x}%`, top: `${y}%` }}>
+              {i === 4 ? (
+                <div className="h-[5cqw] w-[4cqw] rounded-[0.6cqw] border border-[#ff9f43] bg-[#5c2a0c] shadow-[0_0_3cqw_#ff9f43]" />
+              ) : i === 5 ? (
+                <div className="size-[6cqw] rounded-[40%] bg-[#4b4458] shadow-[0_0_2cqw_#ff4fd8]" />
+              ) : (
+                <div className="size-[3.4cqw] rotate-45 border border-[#21e6c1] bg-[#0d2f2a] shadow-[0_0_2.4cqw_#21e6c1]" />
+              )}
+            </div>
+          ))}
+          <div className="absolute left-[50%] top-[86%] size-[2.6cqw] -translate-x-1/2 rounded-full bg-white shadow-[0_0_3cqw_#fff]" />
+          <span className={`absolute left-[5cqw] top-[5cqw] ${mono} uppercase tracking-[0.2em] text-[#7ff5df]`}>Wave 09 · chain ×5</span>
+          <span className={`absolute bottom-[5cqw] right-[5cqw] ${mono} text-[#ffb3ef]`}>◆ Neon Shards +12</span>
+        </div>
+      );
+    }
+
+    case 'smart-dictionary': {
+      return (
+        <div className={wrap} style={{ ...base, background: 'radial-gradient(100% 100% at 10% 0%, #5aa2ff 0%, #1d4f96 42%, #050f20 100%)' }}>
+          <p className="absolute -right-[3cqw] -top-[6cqw] font-serif text-[34cqw] italic leading-none text-white/[0.07]">Aa</p>
+          <Window title="Smart Search" className="left-[6cqw] top-1/2 w-[62cqw] -translate-y-1/2 bg-[#081426]">
+            <div className="p-[2.2cqw] font-mono text-[max(8px,1.5cqw)] leading-[1.8] text-[#d6e6ff]">
+              <p className="text-white/60">Enter a word: <span className="text-white">acheive</span></p>
+              <p className="mt-[0.8cqw] text-[#8fc1ff]">Damerau-Levenshtein · closest 5</p>
+              <p className="flex justify-between"><span>1. achieve</span><span className="text-[#ffd166]">distance 1</span></p>
+              {[70, 58, 64, 52].map((w, i) => (
+                <p key={i} className="flex items-center justify-between opacity-50"><span className="my-[0.7cqw] h-[1cqw] rounded-full bg-[#d6e6ff]/40" style={{ width: `${w}%` }} /><span className="h-[1cqw] w-[6cqw] rounded-full bg-[#ffd166]/40" /></p>
+              ))}
+            </div>
+          </Window>
+          <div className={`absolute bottom-[5cqw] right-[5cqw] flex flex-col items-end gap-[0.8cqw] ${mono}`}>
+            {['Hamming', 'Levenshtein', 'Damerau-Levenshtein'].map((t, i) => (
+              <span key={t} className={`rounded-full border px-[1.4cqw] py-[0.4cqw] ${i === 2 ? 'border-[#ffd166] text-[#ffd166]' : 'border-white/30 text-white/70'}`}>{t}</span>
+            ))}
+          </div>
+          <span className={`absolute right-[5cqw] top-[5cqw] ${mono} text-[#cfe2ff]`}>105,160 words</span>
+        </div>
+      );
+    }
+
     default:
       return <div className={wrap} style={{ background: 'var(--color-ink-3)' }} />;
   }
