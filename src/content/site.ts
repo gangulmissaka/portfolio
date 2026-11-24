@@ -504,7 +504,7 @@ export const PROJECTS: Project[] = [
     year: '2026',
     role: 'Solo developer: design & programming',
     platform: 'Unity (URP) · PC',
-    status: 'Prototype',
+    status: 'Completed · ECU assignment',
     tint: '#21e6c1',
     overview: [
       'Tethered is a 3D isometric tactical survival game set in a neon desert at night. Instead of shooting everything, you right-click to create glowing tethers between enemies and objects such as explosive barrels and heavy rocks.',
