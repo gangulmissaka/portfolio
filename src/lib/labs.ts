@@ -4,29 +4,16 @@ import { notFound } from 'next/navigation';
 import { cache } from 'react';
 import { getCurrentUser, type SessionUser } from './auth';
 import { db, dbReady, schema } from './db';
+import { labsKey } from './labs-key';
+import { isKramaMember } from './krama/access';
+
+export { labsKey };
 
 /**
  * Labs is private: only the admin (ADMIN_EMAILS) and the emails approved in Admin → Labs may see the nav link or
  * open /labs. The list lives in the `labs_access` table and is checked on every request, so removing someone
  * takes effect on their next page load.
  */
-
-const GMAIL = new Set(['gmail.com', 'googlemail.com']);
-
-/**
- * The form used to compare addresses. Gmail ignores dots and anything after "+" in the name part, and
- * googlemail.com is the same mailbox, so "John.Doe+x@googlemail.com" and "johndoe@gmail.com" are one account.
- * Other domains (incl. Google Workspace) are only lowercased, because their dots can be significant.
- */
-export function labsKey(email: string) {
-  const e = email.trim().toLowerCase();
-  const at = e.lastIndexOf('@');
-  if (at < 1) return e;
-  const local = e.slice(0, at);
-  const domain = e.slice(at + 1);
-  if (!GMAIL.has(domain)) return e;
-  return `${local.split('+')[0].replaceAll('.', '')}@gmail.com`;
-}
 
 async function isApproved(email: string) {
   await dbReady;
@@ -39,7 +26,8 @@ export const hasLabsAccess = cache(async (user: SessionUser | null): Promise<boo
   if (!user) return false;
   if (user.isAdmin) return true;
   if (user.banned) return false;
-  return isApproved(user.email);
+  // approved for Labs, or invited to a Krama board (which opens Labs → Krama for them)
+  return (await isApproved(user.email)) || (await isKramaMember(user.email));
 });
 
 /** Current user if they may use Labs, else null. Request-time: call inside <Suspense>. */

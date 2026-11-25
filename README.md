@@ -114,6 +114,13 @@ with drag and drop, card details (description, labels, checklists, due date and 
 comments, archive), search and filters, and a month calendar in Sri Lanka time (GMT+5:30) that highlights Poya
 days, public and bank holidays, and mercantile holidays. Each person only sees their own boards.
 
+**Teams.** Each board has a **Members & Roles** tab. The Krama admin (`ADMIN_EMAILS`) adds people by Google email,
+gives them **Full access** (edit everything) or **Read and tick** (see the board, tick their own cards), and ticks
+their roles (PM, BA, FE, BE, QA, ALL, or custom ones). Cards get a role; only people with that role can tick the
+card done (ALL = whole team). Invited people can open Labs → Krama with that Google account. The admin's
+**Admin** tab (`/labs/krama/admin`) shows every board, everyone's access, work by role, overdue cards and an
+activity log.
+
 Holiday data is in `src/lib/krama/holidays.ts`: official gazetted lists for 2026 and 2027, estimates for 2025 and
 2028 (marked as such in the app). When the government publishes a new year's list, add it to `OFFICIAL` there.
 

@@ -21,9 +21,28 @@ export type KCard = {
   labelIds: string[];
   checklists: Checklist[];
   archived: boolean;
+  roleId: string | null;
+  doneBy: string | null;
+  doneAt: string | null;
   createdAt: string;
 };
-export type KComment = { id: string; cardId: string; body: string; createdAt: string; author: { name: string; image: string | null } };
+export type KRole = { id: string; code: string; name: string; color: LabelColor };
+export type Access = 'full' | 'tick';
+export type KMember = {
+  id: string;
+  email: string;
+  name: string;
+  access: Access;
+  roleIds: string[];
+  /** The account behind the email, once that person has signed in. */
+  account: { id: string; name: string; image: string | null } | null;
+};
+/**
+ * What the current person may do on a board. `all` = owner or Krama admin: can tick any card.
+ * `canManage` = only the Krama admin (site admin) edits members and roles.
+ */
+export type Perm = { canEdit: boolean; canManage: boolean; isOwner: boolean; isAdmin: boolean; all: boolean; roleIds: string[]; access: Access | 'owner' };
+export type KComment = { id: string; cardId: string; body: string; createdAt: string; authorId: string; author: { name: string; image: string | null } };
 
 /** Everything the board screen needs, loaded in one go. Lists are in order; `order` holds each list's active cards. */
 export type BoardData = {
@@ -34,8 +53,45 @@ export type BoardData = {
   cards: Record<string, KCard>;
   labels: KLabel[];
   comments: Record<string, KComment[]>;
+  roles: KRole[];
+  members: KMember[];
+  owner: { id: string; name: string; email: string; image: string | null };
+  /** Names for doneBy ids (people who ticked cards). */
+  people: Record<string, { name: string; image: string | null }>;
+  perm: Perm;
   me: { id: string; name: string; image: string | null };
 };
+
+// ── Team roles ──
+export const DEFAULT_ROLES: { code: string; name: string; color: LabelColor }[] = [
+  { code: 'PM', name: 'Project manager', color: 'purple' },
+  { code: 'BA', name: 'Business analyst and documentation', color: 'sky' },
+  { code: 'FE', name: 'Frontend developer and UI designer', color: 'pink' },
+  { code: 'BE', name: 'Backend developer', color: 'blue' },
+  { code: 'QA', name: 'Tester and security', color: 'green' },
+  { code: 'ALL', name: 'Whole team', color: 'orange' },
+];
+export const ACCESS: Record<Access, { name: string; short: string; body: string }> = {
+  full: { name: 'Full access', short: 'Full', body: 'Can add, edit, move and delete lists and cards, and set the role on cards.' },
+  tick: { name: 'Read and tick', short: 'Read & tick', body: 'Can see the board and tick cards (and their checklist items) for their own roles. Cannot change anything else.' },
+};
+
+/**
+ * Who may tick a card done:
+ * - the board owner and the Krama admin: any card;
+ * - a card with no role: anyone with full access;
+ * - a card for ALL: everyone on the board;
+ * - otherwise: people holding that role (a member holding ALL counts as every role).
+ */
+export function canTickCard(perm: Pick<Perm, 'all' | 'canEdit' | 'roleIds'>, card: Pick<KCard, 'roleId'>, roles: Pick<KRole, 'id' | 'code'>[]) {
+  if (perm.all) return true;
+  if (!card.roleId) return perm.canEdit;
+  const role = roles.find((r) => r.id === card.roleId);
+  if (!role) return perm.canEdit;
+  if (role.code === 'ALL') return true;
+  const allId = roles.find((r) => r.code === 'ALL')?.id;
+  return perm.roleIds.includes(role.id) || (!!allId && perm.roleIds.includes(allId));
+}
 
 // ── Look ──
 export const THEMES = {
@@ -87,7 +143,7 @@ export const PRIORITIES: Record<Priority, { name: string; color: string; rank: n
 export const PRIORITY_IDS = Object.keys(PRIORITIES) as Priority[];
 
 // ── Limits (enforced on the server, mirrored in the inputs) ──
-export const LIMITS = { title: 200, listTitle: 80, boardTitle: 80, description: 8000, comment: 2000, label: 30, checklistTitle: 80, item: 300, checklists: 10, items: 100 };
+export const LIMITS = { roleCode: 6, roleName: 60, memberName: 60, title: 200, listTitle: 80, boardTitle: 80, description: 8000, comment: 2000, label: 30, checklistTitle: 80, item: 300, checklists: 10, items: 100 };
 
 // ── Due status ──
 export type DueState = 'done' | 'overdue' | 'today' | 'soon' | 'later';

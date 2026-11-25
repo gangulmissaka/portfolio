@@ -38,7 +38,7 @@ async function Labs() {
         <p className="mt-2 text-sm leading-relaxed text-mute">
           Labs is hidden from everyone else: no link in the menu, and <span className="font-mono text-bone-2">/labs</span> shows the
           normal “page not found”. Add a Google address below and that person sees Labs the next time they load a page while signed in.
-          Removing them takes effect on their next page load. Blocked users never get in.
+          Removing them takes effect on their next page load. Blocked users never get in. People you invite to a Krama board (in Labs → Krama → Members &amp; Roles) can also open Labs, but only to reach Krama.
         </p>
       </div>
 

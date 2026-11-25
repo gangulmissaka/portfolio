@@ -22,7 +22,7 @@ export default function KramaCalendarPage() {
 
 async function Calendar() {
   const user = await requireLabsPage();
-  const due = await dueCards(user.id);
+  const due = await dueCards(user);
   return (
     <div data-krama-app className="flex h-dvh flex-col pt-[var(--header-h)]" style={{ background: 'radial-gradient(120% 90% at 0% 0%, #2a1a10 0%, #14100c 50%, #0c0a08 100%)' }}>
       <div className="flex flex-wrap items-center gap-3 px-[var(--gutter)] py-3">

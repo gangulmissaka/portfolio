@@ -6,16 +6,18 @@ import { useState, useTransition } from 'react';
 import { createBoard, updateBoard } from '@/lib/actions/krama';
 import { upcomingHolidays } from '@/lib/krama/holidays';
 import type { DueItem } from '@/lib/krama/data';
-import { LIMITS, THEME_IDS, THEMES, dueState, type ThemeId } from '@/lib/krama/model';
+import { ACCESS, LIMITS, THEME_IDS, THEMES, dueState, type Access, type ThemeId } from '@/lib/krama/model';
 import { SL_LABEL, daysBetween, formatShort, formatWeekday, relativeDay } from '@/lib/krama/time';
 import { Legend, useTodaySL } from './calendar';
 import { DueBadge, Icon, kfield } from './ui';
 
-export type BoardTile = { id: string; title: string; theme: ThemeId; starred: boolean; lists: number; cards: number; open: number; updatedAt: string };
+export type BoardTile = { id: string; title: string; theme: ThemeId; starred: boolean; mine: boolean; ownerName: string; access: Access | 'owner'; lists: number; cards: number; open: number; members: number; updatedAt: string };
 
-export function KramaHome({ boards, due, firstName }: { boards: BoardTile[]; due: DueItem[]; firstName: string }) {
+export function KramaHome({ boards, due, firstName, isAdmin }: { boards: BoardTile[]; due: DueItem[]; firstName: string; isAdmin: boolean }) {
   const today = useTodaySL();
-  const [creating, setCreating] = useState(boards.length === 0);
+  const mine = boards.filter((b) => b.mine);
+  const shared = boards.filter((b) => !b.mine);
+  const [creating, setCreating] = useState(mine.length === 0 && shared.length === 0);
   const [starred, setStarred] = useState<Record<string, boolean>>(() => Object.fromEntries(boards.map((b) => [b.id, b.starred])));
   const soon = due.filter((d) => !d.dueDone && daysBetween(today, d.dueDate) <= 7).slice(0, 8);
   const holidays = upcomingHolidays(today, 6);
@@ -29,6 +31,11 @@ export function KramaHome({ boards, due, firstName }: { boards: BoardTile[]; due
           <p className="mt-3 max-w-[46ch] text-bone-2">Boards, lists and cards for planning anything, with Sri Lankan holidays and Poya days built into the calendar. Good to see you, {firstName}.</p>
         </div>
         <div className="flex flex-wrap gap-2">
+          {isAdmin && (
+            <Link href="/labs/krama/admin" className="flex h-11 items-center gap-2 rounded-full border border-ember/50 bg-ember/10 px-4 text-sm text-ember transition-colors hover:bg-ember hover:text-ink">
+              <Icon name="shield" /> Admin
+            </Link>
+          )}
           <Link href="/labs/krama/calendar" className="flex h-11 items-center gap-2 rounded-full border border-line-2 px-4 text-sm text-bone-2 transition-colors hover:border-bone hover:text-bone">
             <Icon name="calendar" /> Calendar
           </Link>
@@ -40,9 +47,31 @@ export function KramaHome({ boards, due, firstName }: { boards: BoardTile[]; due
 
       <div className="mt-10 grid gap-10 lg:grid-cols-[1fr_20rem]">
         <section aria-labelledby="k-boards">
-          <h2 id="k-boards" className="eyebrow">Your boards · {boards.length}</h2>
+          {shared.length > 0 && (
+            <div className="mb-10">
+              <h2 className="eyebrow">Shared with you · {shared.length}</h2>
+              <ul className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {shared.map((b) => (
+                  <li key={b.id}>
+                    <Link href={`/labs/krama/b/${b.id}`} className="flex h-40 flex-col justify-between overflow-hidden rounded-[1.2rem] border border-line p-5 transition-all duration-500 hover:-translate-y-1 hover:border-line-2 hover:shadow-2xl hover:shadow-black/50" style={{ background: THEMES[b.theme]?.bg }}>
+                      <span>
+                        <span className="block text-lg font-medium leading-snug tracking-tight">{b.title}</span>
+                        <span className="mt-1 block text-xs text-bone-2">Shared by {b.ownerName}</span>
+                      </span>
+                      <span className="flex flex-wrap items-center gap-2 text-xs text-bone-2">
+                        <span className={`rounded-full px-2 py-0.5 ${b.access === 'full' ? 'bg-ember/20 text-ember' : 'bg-[#5fd0e6]/15 text-[#5fd0e6]'}`}>{b.access === 'owner' ? 'Owner' : ACCESS[b.access].name}</span>
+                        <span>{b.cards} {b.cards === 1 ? 'card' : 'cards'}</span>
+                        <span>{b.members + 1} people</span>
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <h2 id="k-boards" className="eyebrow">Your boards · {mine.length}</h2>
           <ul className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {boards.map((b) => (
+            {mine.map((b) => (
               <li key={b.id} className="group relative">
                 <Link href={`/labs/krama/b/${b.id}`} className="flex h-40 flex-col justify-between overflow-hidden rounded-[1.2rem] border border-line p-5 transition-all duration-500 hover:-translate-y-1 hover:border-line-2 hover:shadow-2xl hover:shadow-black/50" style={{ background: THEMES[b.theme]?.bg }}>
                   <span className="flex items-start justify-between gap-3 pr-8">
@@ -52,6 +81,7 @@ export function KramaHome({ boards, due, firstName }: { boards: BoardTile[]; due
                     <span>{b.lists} {b.lists === 1 ? 'list' : 'lists'}</span>
                     <span>{b.cards} {b.cards === 1 ? 'card' : 'cards'}</span>
                     {b.open > 0 && <span className="flex items-center gap-1"><Icon name="clock" className="size-3.5" /> {b.open} with due dates</span>}
+                    {b.members > 0 && <span className="flex items-center gap-1"><Icon name="users" className="size-3.5" /> {b.members + 1} people</span>}
                   </span>
                 </Link>
                 <button
@@ -127,7 +157,7 @@ export function KramaHome({ boards, due, firstName }: { boards: BoardTile[]; due
         </aside>
       </div>
 
-      {creating && <CreateBoard onClose={() => setCreating(false)} first={boards.length === 0} />}
+      {creating && <CreateBoard onClose={() => setCreating(false)} first={mine.length === 0 && shared.length === 0} />}
     </div>
   );
 }

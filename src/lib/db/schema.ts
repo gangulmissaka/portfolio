@@ -171,10 +171,61 @@ export const kramaCard = pgTable(
     labelIds: jsonb('labelIds').$type<string[]>().notNull().default([]),
     checklists: jsonb('checklists').$type<{ id: string; title: string; items: { id: string; text: string; done: boolean }[] }[]>().notNull().default([]),
     archived: boolean('archived').notNull().default(false),
+    /** The team role responsible (krama_role.id). Only people with that role may tick the card done. */
+    roleId: text('roleId'),
+    doneBy: text('doneBy'),
+    doneAt: timestamp('doneAt'),
     createdAt: timestamp('createdAt').notNull().defaultNow(),
     updatedAt: timestamp('updatedAt').notNull().defaultNow(),
   },
   (t) => [index('krama_card_board_idx').on(t.boardId), index('krama_card_list_idx').on(t.listId)],
+);
+
+/** Team roles on a board (PM, BA, FE, BE, QA, ALL…). Code "ALL" means the whole team. */
+export const kramaRole = pgTable(
+  'krama_role',
+  {
+    id: text('id').primaryKey(),
+    boardId: text('boardId').notNull().references(() => kramaBoard.id, { onDelete: 'cascade' }),
+    code: text('code').notNull(),
+    name: text('name').notNull(),
+    color: text('color').notNull(),
+    position: integer('position').notNull().default(0),
+  },
+  (t) => [index('krama_role_board_idx').on(t.boardId)],
+);
+
+/**
+ * People invited to a board, by Google email (`key` is the normalised address, as for Labs access).
+ * access: "full" (edit everything) or "tick" (read the board, tick cards for their roles).
+ */
+export const kramaMember = pgTable(
+  'krama_member',
+  {
+    id: text('id').primaryKey(),
+    boardId: text('boardId').notNull().references(() => kramaBoard.id, { onDelete: 'cascade' }),
+    key: text('key').notNull(),
+    email: text('email').notNull(),
+    name: text('name').notNull().default(''),
+    access: text('access').notNull().default('tick'),
+    roleIds: jsonb('roleIds').$type<string[]>().notNull().default([]),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex('krama_member_unique').on(t.boardId, t.key), index('krama_member_key_idx').on(t.key)],
+);
+
+/** Who did what, for the admin panel. */
+export const kramaActivity = pgTable(
+  'krama_activity',
+  {
+    id: text('id').primaryKey(),
+    boardId: text('boardId').notNull().references(() => kramaBoard.id, { onDelete: 'cascade' }),
+    userId: text('userId').references(() => user.id, { onDelete: 'set null' }),
+    cardId: text('cardId'),
+    action: text('action').notNull(),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+  },
+  (t) => [index('krama_activity_board_idx').on(t.boardId, t.createdAt)],
 );
 
 export const kramaComment = pgTable(
@@ -253,4 +304,22 @@ create table if not exists "krama_comment" (
   "id" text primary key, "cardId" text not null references "krama_card"("id") on delete cascade,
   "userId" text not null references "user"("id") on delete cascade, "body" text not null, "createdAt" timestamp not null default now());
 create index if not exists krama_comment_card_idx on "krama_comment"("cardId");
+alter table "krama_card" add column if not exists "roleId" text;
+alter table "krama_card" add column if not exists "doneBy" text;
+alter table "krama_card" add column if not exists "doneAt" timestamp;
+create table if not exists "krama_role" (
+  "id" text primary key, "boardId" text not null references "krama_board"("id") on delete cascade,
+  "code" text not null, "name" text not null, "color" text not null, "position" integer not null default 0);
+create index if not exists krama_role_board_idx on "krama_role"("boardId");
+create table if not exists "krama_member" (
+  "id" text primary key, "boardId" text not null references "krama_board"("id") on delete cascade,
+  "key" text not null, "email" text not null, "name" text not null default '', "access" text not null default 'tick',
+  "roleIds" jsonb not null default '[]'::jsonb, "createdAt" timestamp not null default now());
+create unique index if not exists krama_member_unique on "krama_member"("boardId", "key");
+create index if not exists krama_member_key_idx on "krama_member"("key");
+create table if not exists "krama_activity" (
+  "id" text primary key, "boardId" text not null references "krama_board"("id") on delete cascade,
+  "userId" text references "user"("id") on delete set null, "cardId" text, "action" text not null,
+  "createdAt" timestamp not null default now());
+create index if not exists krama_activity_board_idx on "krama_activity"("boardId", "createdAt");
 `;

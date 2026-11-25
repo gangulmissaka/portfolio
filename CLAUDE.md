@@ -70,6 +70,18 @@ building while the dev server runs is fine).
   `lib/krama/holidays.ts`: 2026-27 official (gazette sources in the file), 2025/2028 estimated, from the user's
   "srilanka" MCP tool (`C:\Users\User\Desktop\MYAPPS\MCP control\servers\lk_calendar\holidays.json`). Add a year
   there when a new gazette is out. Board pages set `data-krama-app`, which hides the footer and locks page scroll.
+- **Krama teams**: boards can have members (`krama_member`, by normalised Google email via `lib/labs-key.ts`) with
+  access `full` (edit) or `tick` (read + tick), and per-board roles (`krama_role`, default PM/BA/FE/BE/QA/ALL).
+  Cards have `roleId`; `canTickCard()` in `lib/krama/model.ts` is THE tick rule, used by both server and UI:
+  owner/Krama admin tick anything, no-role cards need full access, ALL cards anyone, else members holding that
+  role (a member with ALL counts as every role). Only the site admin (`canManage`) edits members and roles.
+  Rights come from `boardAccess()` in `lib/krama/access.ts`; every action in `lib/actions/krama.ts` goes through
+  `access(boardId, 'view'|'edit'|'own'|'manage')`. Ticking uses `setCardDone`/`setChecklistItem` (not updateCard).
+  Being a member of any board also grants Labs access (`hasLabsAccess`). Never export helpers like `seedRoles`
+  from the `'use server'` file: every export there is callable from the browser. Activity is logged to
+  `krama_activity` for the admin panel (`/labs/krama/admin`, admin only). Boards refresh in the background every
+  20 s when idle (BoardApp). Multi-user E2E: four dev accounts; Better Auth rate-limits sign-ups (retry on 429);
+  server action ids are in the dev chunks as `{"<id>":{"name":"<action>"}}` for direct-call permission tests.
 - **Editing on Windows**: never round-trip files through PowerShell `Get-Content`/`Set-Content` (it reads UTF-8 as
   ANSI and garbles emoji, curly quotes and `·`). Keep LF line endings (the repo is LF; Python on Windows writes CRLF
   unless given `newline='\n'`). Long bash heredocs can fail here; write scripts to the scratchpad with the Write tool.

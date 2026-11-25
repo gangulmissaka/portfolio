@@ -20,6 +20,6 @@ export default function KramaPage() {
 
 async function Home() {
   const user = await requireLabsPage();
-  const [boards, due] = await Promise.all([listBoards(user.id), dueCards(user.id)]);
-  return <KramaHome boards={boards} due={due} firstName={user.name.split(' ')[0]} />;
+  const [boards, due] = await Promise.all([listBoards(user), dueCards(user)]);
+  return <KramaHome boards={boards} due={due} firstName={user.name.split(' ')[0]} isAdmin={user.isAdmin} />;
 }

@@ -9,14 +9,21 @@ import { checklistProgress, COLOR_IDS, COLORS, LIMITS, PRIORITY_IDS, uid, type B
 import { formatLong, formatTime, SL_LABEL } from '@/lib/krama/time';
 import { DatePicker } from './calendar';
 import type { BoardApi } from './store';
+import { RoleBadge, useTeam } from './team';
 import { AutoTextarea, DueBadge, Icon, InlineEdit, LabelChip, Popover, PopTitle, PriorityMark, ProgressBar, type IconName } from './ui';
 
-type Panel = 'labels' | 'dates' | 'priority' | 'cover' | 'checklist' | 'move' | null;
+type Panel = 'labels' | 'dates' | 'priority' | 'cover' | 'checklist' | 'move' | 'role' | null;
 
+/**
+ * Card details. Full access: everything is editable. Read and tick: everything is read-only except the Done
+ * button and checklist ticks, and those only on cards for their roles (see canTickCard).
+ */
 export function CardModal({ cardId, data, api, onClose }: { cardId: string; data: BoardData; api: BoardApi; onClose: () => void }) {
   const ref = useRef<HTMLDialogElement>(null);
   const card = data.cards[cardId];
   const [panel, setPanel] = useState<Panel>(null);
+  const { perm, roles, canTick, roleOf } = useTeam();
+  const edit = perm.canEdit;
 
   useEffect(() => {
     const d = ref.current;
@@ -39,6 +46,12 @@ export function CardModal({ cardId, data, api, onClose }: { cardId: string; data
   const toggle = (p: Panel) => setPanel((cur) => (cur === p ? null : p));
   const cardLabels = card.labelIds.map((id) => data.labels.find((l) => l.id === id)).filter(Boolean) as KLabel[];
   const comments = data.comments[card.id] ?? [];
+  const role = roleOf(card.roleId);
+  const tickable = canTick(card);
+  const itemsTickable = edit || tickable;
+  const doneBy = card.doneBy ? (card.doneBy === data.me.id ? 'you' : data.people[card.doneBy]?.name ?? 'a teammate') : null;
+  const whoCanTick = role ? (role.code === 'ALL' ? 'Everyone on the board' : `People with the ${role.code} role`) : 'People with full access';
+  const notYours = role ? `Only people with the ${role.code} role can tick this card.` : 'Only people with full access can tick this card.';
 
   return (
     <dialog
@@ -63,45 +76,85 @@ export function CardModal({ cardId, data, api, onClose }: { cardId: string; data
           {card.archived && (
             <div className="flex items-center justify-between gap-3 bg-[#f2c94c]/10 px-6 py-3 text-sm text-[#f3dc8a]">
               <span className="flex items-center gap-2"><Icon name="archive" /> This card is archived.</span>
-              <button type="button" onClick={() => patch({ archived: false })} className="rounded-full border border-current px-3 py-1 text-xs">Restore</button>
+              {edit && <button type="button" onClick={() => patch({ archived: false })} className="rounded-full border border-current px-3 py-1 text-xs">Restore</button>}
             </div>
           )}
 
-          <div className="grid gap-8 p-5 md:grid-cols-[1fr_12.5rem] md:p-7">
+          <div className={`grid gap-8 p-5 md:p-7 ${edit ? 'md:grid-cols-[1fr_12.5rem]' : ''}`}>
             {/* ── main ── */}
             <div className="min-w-0">
               <div className="pr-10" id="k-card-title">
-                <InlineEdit value={card.title} label="Card title" maxLength={LIMITS.title} onSave={(t) => patch({ title: t })} className="w-full text-2xl font-medium leading-tight tracking-tight" inputClassName="text-2xl font-medium leading-tight" />
+                {edit ? (
+                  <InlineEdit value={card.title} label="Card title" maxLength={LIMITS.title} onSave={(t) => patch({ title: t })} className="w-full text-2xl font-medium leading-tight tracking-tight" inputClassName="text-2xl font-medium leading-tight" />
+                ) : (
+                  <h2 className="text-2xl font-medium leading-tight tracking-tight">{card.title}</h2>
+                )}
               </div>
               <p className="mt-1.5 text-sm text-mute">
-                in list <button type="button" data-popover-trigger onClick={() => toggle('move')} className="text-bone-2 underline decoration-line-2 underline-offset-4 hover:text-bone">{list?.title}</button>
+                in list{' '}
+                {edit ? (
+                  <button type="button" data-popover-trigger onClick={() => toggle('move')} className="text-bone-2 underline decoration-line-2 underline-offset-4 hover:text-bone">{list?.title}</button>
+                ) : (
+                  <span className="text-bone-2">{list?.title}</span>
+                )}
               </p>
+
+              {/* done */}
+              <div className={`mt-5 flex flex-wrap items-center gap-3 rounded-2xl border p-3 ${card.dueDone ? 'border-[#4fbf7a]/40 bg-[#4fbf7a]/[0.07]' : 'border-line bg-ink/40'}`}>
+                <button
+                  type="button"
+                  disabled={!tickable}
+                  onClick={() => api.setDone(card.id, !card.dueDone)}
+                  aria-pressed={card.dueDone}
+                  className={`flex h-9 items-center gap-2 rounded-full px-4 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${card.dueDone ? 'bg-[#4fbf7a] text-[#06200f] hover:brightness-110' : 'bg-bone text-ink hover:bg-[#4fbf7a]'}`}
+                >
+                  <Icon name="check" strokeWidth={2.6} /> {card.dueDone ? 'Done' : 'Mark as done'}
+                </button>
+                <p className="min-w-0 flex-1 text-xs leading-relaxed text-mute">
+                  {card.dueDone && doneBy ? (
+                    <>Ticked by <span className="text-bone-2">{doneBy}</span>{card.doneAt && <> · <RelativeTime iso={card.doneAt} /></>}. </>
+                  ) : null}
+                  {tickable ? (card.dueDone ? 'Click again to reopen it.' : `${whoCanTick} can tick this card.`) : notYours}
+                </p>
+              </div>
 
               {/* meta row */}
               <div className="mt-6 flex flex-wrap gap-x-7 gap-y-4">
+                {role && (
+                  <Meta title="Role">
+                    <button type="button" data-popover-trigger disabled={!edit} onClick={() => toggle('role')} className="flex items-center gap-2 rounded-md text-sm text-bone-2 enabled:hover:text-bone">
+                      <RoleBadge role={role} size="md" /> <span className="max-w-48 truncate">{role.name}</span>
+                    </button>
+                  </Meta>
+                )}
                 {cardLabels.length > 0 && (
                   <Meta title="Labels">
                     <div className="flex flex-wrap gap-1.5">
-                      {cardLabels.map((l) => (
-                        <button key={l.id} type="button" data-popover-trigger onClick={() => toggle('labels')}><LabelChip label={l} /></button>
-                      ))}
-                      <button type="button" data-popover-trigger onClick={() => toggle('labels')} className="grid h-6 w-7 place-items-center rounded-md bg-ink-3 text-mute hover:text-bone" aria-label="Edit labels"><Icon name="plus" className="size-3.5" /></button>
+                      {cardLabels.map((l) =>
+                        edit ? (
+                          <button key={l.id} type="button" data-popover-trigger onClick={() => toggle('labels')}><LabelChip label={l} /></button>
+                        ) : (
+                          <LabelChip key={l.id} label={l} />
+                        ),
+                      )}
+                      {edit && <button type="button" data-popover-trigger onClick={() => toggle('labels')} className="grid h-6 w-7 place-items-center rounded-md bg-ink-3 text-mute hover:text-bone" aria-label="Edit labels"><Icon name="plus" className="size-3.5" /></button>}
                     </div>
                   </Meta>
                 )}
                 {card.dueDate && (
                   <Meta title="Due date">
-                    <div className="flex items-center gap-2">
-                      <input type="checkbox" checked={card.dueDone} onChange={(e) => patch({ dueDone: e.target.checked })} className="size-4 accent-[#4fbf7a]" aria-label="Mark due date complete" />
+                    {edit ? (
                       <button type="button" data-popover-trigger onClick={() => toggle('dates')} className="rounded-md bg-ink-3 px-1 hover:bg-ink">
                         <DueBadge card={card} />
                       </button>
-                    </div>
+                    ) : (
+                      <DueBadge card={card} />
+                    )}
                   </Meta>
                 )}
                 {card.priority !== 'none' && (
                   <Meta title="Priority">
-                    <button type="button" data-popover-trigger onClick={() => toggle('priority')} className="flex h-6 items-center rounded-md bg-ink-3 px-2 hover:bg-ink">
+                    <button type="button" data-popover-trigger disabled={!edit} onClick={() => toggle('priority')} className="flex h-6 items-center rounded-md bg-ink-3 px-2 enabled:hover:bg-ink">
                       <PriorityMark priority={card.priority} withText />
                     </button>
                   </Meta>
@@ -114,12 +167,15 @@ export function CardModal({ cardId, data, api, onClose }: { cardId: string; data
                 </p>
               )}
 
-              <Description value={card.description} onSave={(d) => patch({ description: d })} />
+              <Description value={card.description} onSave={(d) => patch({ description: d })} readOnly={!edit} />
 
               {card.checklists.map((cl) => (
                 <ChecklistBlock
                   key={cl.id}
                   list={cl}
+                  canEdit={edit}
+                  canTick={itemsTickable}
+                  onTick={(itemId, done) => api.setItem(card.id, cl.id, itemId, done)}
                   onChange={(next) => patch({ checklists: card.checklists.map((x) => (x.id === cl.id ? next : x)) })}
                   onDelete={() => confirm(`Delete the checklist "${cl.title || 'Checklist'}"?`) && patch({ checklists: card.checklists.filter((x) => x.id !== cl.id) })}
                 />
@@ -127,84 +183,105 @@ export function CardModal({ cardId, data, api, onClose }: { cardId: string; data
 
               <Comments
                 comments={comments}
+                canWrite={edit}
+                canDeleteAll={perm.isOwner || perm.isAdmin}
+                myId={data.me.id}
                 onAdd={(b) => api.addComment(card.id, b)}
                 onDelete={(id) => api.deleteComment(card.id, id)}
                 me={data.me}
               />
+              {!edit && <p className="mt-8 rounded-xl border border-line bg-ink/40 p-3 text-xs text-mute">You have read and tick access on this board. You can tick cards and checklist items for your roles; ask the Krama admin if you need to change anything else.</p>}
             </div>
 
-            {/* ── sidebar ── */}
-            <aside className="relative flex flex-col gap-5">
-              <SideGroup title="Add to card">
-                <SideBtn icon="tag" active={panel === 'labels'} onClick={() => toggle('labels')}>Labels</SideBtn>
-                <SideBtn icon="checklist" active={panel === 'checklist'} onClick={() => toggle('checklist')}>Checklist</SideBtn>
-                <SideBtn icon="calendar" active={panel === 'dates'} onClick={() => toggle('dates')}>Due date</SideBtn>
-                <SideBtn icon="flag" active={panel === 'priority'} onClick={() => toggle('priority')}>Priority</SideBtn>
-                <SideBtn icon="palette" active={panel === 'cover'} onClick={() => toggle('cover')}>Cover</SideBtn>
-              </SideGroup>
-              <SideGroup title="Actions">
-                <SideBtn icon="move" active={panel === 'move'} onClick={() => toggle('move')}>Move</SideBtn>
-                {card.archived ? (
-                  <SideBtn icon="restore" onClick={() => patch({ archived: false })}>Restore</SideBtn>
-                ) : (
-                  <SideBtn icon="archive" onClick={() => { patch({ archived: true }); onClose(); }}>Archive</SideBtn>
-                )}
-                <SideBtn icon="trash" danger onClick={() => { if (confirm(`Delete "${card.title}"? This can't be undone.`)) { api.deleteCard(card.id); onClose(); } }}>Delete</SideBtn>
-              </SideGroup>
+            {/* ── sidebar (full access) ── */}
+            {edit && (
+              <aside className="relative flex flex-col gap-5">
+                <SideGroup title="Add to card">
+                  <SideBtn icon="flag" active={panel === 'role'} onClick={() => toggle('role')}>Role</SideBtn>
+                  <SideBtn icon="tag" active={panel === 'labels'} onClick={() => toggle('labels')}>Labels</SideBtn>
+                  <SideBtn icon="checklist" active={panel === 'checklist'} onClick={() => toggle('checklist')}>Checklist</SideBtn>
+                  <SideBtn icon="calendar" active={panel === 'dates'} onClick={() => toggle('dates')}>Due date</SideBtn>
+                  <SideBtn icon="sun" active={panel === 'priority'} onClick={() => toggle('priority')}>Priority</SideBtn>
+                  <SideBtn icon="palette" active={panel === 'cover'} onClick={() => toggle('cover')}>Cover</SideBtn>
+                </SideGroup>
+                <SideGroup title="Actions">
+                  <SideBtn icon="move" active={panel === 'move'} onClick={() => toggle('move')}>Move</SideBtn>
+                  {card.archived ? (
+                    <SideBtn icon="restore" onClick={() => patch({ archived: false })}>Restore</SideBtn>
+                  ) : (
+                    <SideBtn icon="archive" onClick={() => { patch({ archived: true }); onClose(); }}>Archive</SideBtn>
+                  )}
+                  <SideBtn icon="trash" danger onClick={() => { if (confirm(`Delete "${card.title}"? This can't be undone.`)) { api.deleteCard(card.id); onClose(); } }}>Delete</SideBtn>
+                </SideGroup>
 
-              <div className="absolute right-0 top-0 w-full">
-                <Popover open={panel === 'labels'} onClose={() => setPanel(null)} label="Labels" align="right" className="!top-0">
-                  <LabelsPanel card={card} labels={data.labels} api={api} onClose={() => setPanel(null)} />
-                </Popover>
-                <Popover open={panel === 'dates'} onClose={() => setPanel(null)} label="Due date" align="right" className="!top-0 w-80">
-                  <PopTitle onClose={() => setPanel(null)}>Due date</PopTitle>
-                  <DatePicker
-                    date={card.dueDate}
-                    time={card.dueTime}
-                    onSave={(d, t) => { patch({ dueDate: d, dueTime: t }); setPanel(null); }}
-                    onRemove={() => { patch({ dueDate: null, dueTime: null, dueDone: false }); setPanel(null); }}
-                  />
-                </Popover>
-                <Popover open={panel === 'priority'} onClose={() => setPanel(null)} label="Priority" align="right" className="!top-0 w-60">
-                  <PopTitle onClose={() => setPanel(null)}>Priority</PopTitle>
-                  {PRIORITY_IDS.map((p) => (
-                    <button key={p} type="button" onClick={() => { patch({ priority: p }); setPanel(null); }} className={`flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-sm hover:bg-ink-3 ${card.priority === p ? 'bg-ink-3' : ''}`}>
-                      <PriorityMark priority={p} withText />
-                      {card.priority === p && <Icon name="check" className="size-4 text-ember" />}
-                    </button>
-                  ))}
-                </Popover>
-                <Popover open={panel === 'cover'} onClose={() => setPanel(null)} label="Cover" align="right" className="!top-0 w-64">
-                  <PopTitle onClose={() => setPanel(null)}>Cover colour</PopTitle>
-                  <div className="grid grid-cols-5 gap-2">
-                    {COLOR_IDS.map((c) => (
-                      <button key={c} type="button" onClick={() => patch({ cover: c })} className={`h-10 rounded-lg transition-transform hover:scale-105 ${card.cover === c ? 'ring-2 ring-bone ring-offset-2 ring-offset-ink-2' : ''}`} style={{ background: COLORS[c].bg }} aria-label={`${COLORS[c].name} cover`} aria-pressed={card.cover === c} />
+                <div className="absolute right-0 top-0 w-full">
+                  <Popover open={panel === 'role'} onClose={() => setPanel(null)} label="Role" align="right" className="!top-0 w-80">
+                    <PopTitle onClose={() => setPanel(null)}>Role responsible</PopTitle>
+                    <p className="mb-2 px-1 text-xs text-mute">Only people with this role can tick the card done. ALL lets the whole team tick it.</p>
+                    {roles.map((r) => (
+                      <button key={r.id} type="button" onClick={() => { patch({ roleId: r.id }); setPanel(null); }} className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left text-sm hover:bg-ink-3 ${card.roleId === r.id ? 'bg-ink-3' : ''}`}>
+                        <RoleBadge role={r} />
+                        <span className="min-w-0 flex-1 truncate text-bone-2">{r.name}</span>
+                        <span className="shrink-0 text-xs text-mute">{data.members.filter((m) => m.roleIds.includes(r.id)).length || ''}</span>
+                        {card.roleId === r.id && <Icon name="check" className="size-4 shrink-0 text-ember" />}
+                      </button>
                     ))}
-                  </div>
-                  {card.cover && <button type="button" onClick={() => patch({ cover: null })} className="mt-3 h-9 w-full rounded-full border border-line-2 text-sm text-bone-2 hover:border-bone hover:text-bone">Remove cover</button>}
-                </Popover>
-                <Popover open={panel === 'checklist'} onClose={() => setPanel(null)} label="Add checklist" align="right" className="!top-0">
-                  <PopTitle onClose={() => setPanel(null)}>Add checklist</PopTitle>
-                  <NewChecklist
-                    disabled={card.checklists.length >= LIMITS.checklists}
-                    onAdd={(title) => { patch({ checklists: [...card.checklists, { id: uid(), title, items: [] }] }); setPanel(null); }}
-                  />
-                </Popover>
-                <Popover open={panel === 'move'} onClose={() => setPanel(null)} label="Move card" align="right" className="!top-0">
-                  <PopTitle onClose={() => setPanel(null)}>Move to list</PopTitle>
-                  {data.lists.map((l) => (
-                    <button key={l.id} type="button" disabled={l.id === card.listId} onClick={() => { api.placeCard(card.id, l.id); setPanel(null); }} className="flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-left text-sm hover:bg-ink-3 disabled:opacity-50">
-                      {l.title}
-                      {l.id === card.listId ? <span className="text-xs text-mute">current</span> : <span className="text-xs text-mute">{(data.order[l.id] ?? []).length}</span>}
-                    </button>
-                  ))}
-                  <div className="mt-2 flex gap-2 border-t border-line pt-2">
-                    <button type="button" onClick={() => { api.placeCard(card.id, card.listId, 0); setPanel(null); }} className="h-8 flex-1 rounded-full border border-line-2 text-xs text-bone-2 hover:border-bone">To top</button>
-                    <button type="button" onClick={() => { api.placeCard(card.id, card.listId); setPanel(null); }} className="h-8 flex-1 rounded-full border border-line-2 text-xs text-bone-2 hover:border-bone">To bottom</button>
-                  </div>
-                </Popover>
-              </div>
-            </aside>
+                    {card.roleId && <button type="button" onClick={() => { patch({ roleId: null }); setPanel(null); }} className="mt-2 h-9 w-full rounded-full border border-line-2 text-sm text-bone-2 hover:border-bone hover:text-bone">No role</button>}
+                    {roles.length === 0 && <p className="px-1 text-sm text-mute">This board has no roles yet.</p>}
+                  </Popover>
+                  <Popover open={panel === 'labels'} onClose={() => setPanel(null)} label="Labels" align="right" className="!top-0">
+                    <LabelsPanel card={card} labels={data.labels} api={api} onClose={() => setPanel(null)} />
+                  </Popover>
+                  <Popover open={panel === 'dates'} onClose={() => setPanel(null)} label="Due date" align="right" className="!top-0 w-80">
+                    <PopTitle onClose={() => setPanel(null)}>Due date</PopTitle>
+                    <DatePicker
+                      date={card.dueDate}
+                      time={card.dueTime}
+                      onSave={(d, t) => { patch({ dueDate: d, dueTime: t }); setPanel(null); }}
+                      onRemove={() => { patch({ dueDate: null, dueTime: null }); setPanel(null); }}
+                    />
+                  </Popover>
+                  <Popover open={panel === 'priority'} onClose={() => setPanel(null)} label="Priority" align="right" className="!top-0 w-60">
+                    <PopTitle onClose={() => setPanel(null)}>Priority</PopTitle>
+                    {PRIORITY_IDS.map((p) => (
+                      <button key={p} type="button" onClick={() => { patch({ priority: p }); setPanel(null); }} className={`flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-sm hover:bg-ink-3 ${card.priority === p ? 'bg-ink-3' : ''}`}>
+                        <PriorityMark priority={p} withText />
+                        {card.priority === p && <Icon name="check" className="size-4 text-ember" />}
+                      </button>
+                    ))}
+                  </Popover>
+                  <Popover open={panel === 'cover'} onClose={() => setPanel(null)} label="Cover" align="right" className="!top-0 w-64">
+                    <PopTitle onClose={() => setPanel(null)}>Cover colour</PopTitle>
+                    <div className="grid grid-cols-5 gap-2">
+                      {COLOR_IDS.map((c) => (
+                        <button key={c} type="button" onClick={() => patch({ cover: c })} className={`h-10 rounded-lg transition-transform hover:scale-105 ${card.cover === c ? 'ring-2 ring-bone ring-offset-2 ring-offset-ink-2' : ''}`} style={{ background: COLORS[c].bg }} aria-label={`${COLORS[c].name} cover`} aria-pressed={card.cover === c} />
+                      ))}
+                    </div>
+                    {card.cover && <button type="button" onClick={() => patch({ cover: null })} className="mt-3 h-9 w-full rounded-full border border-line-2 text-sm text-bone-2 hover:border-bone hover:text-bone">Remove cover</button>}
+                  </Popover>
+                  <Popover open={panel === 'checklist'} onClose={() => setPanel(null)} label="Add checklist" align="right" className="!top-0">
+                    <PopTitle onClose={() => setPanel(null)}>Add checklist</PopTitle>
+                    <NewChecklist
+                      disabled={card.checklists.length >= LIMITS.checklists}
+                      onAdd={(title) => { patch({ checklists: [...card.checklists, { id: uid(), title, items: [] }] }); setPanel(null); }}
+                    />
+                  </Popover>
+                  <Popover open={panel === 'move'} onClose={() => setPanel(null)} label="Move card" align="right" className="!top-0">
+                    <PopTitle onClose={() => setPanel(null)}>Move to list</PopTitle>
+                    {data.lists.map((l) => (
+                      <button key={l.id} type="button" disabled={l.id === card.listId} onClick={() => { api.placeCard(card.id, l.id); setPanel(null); }} className="flex w-full items-center justify-between rounded-xl px-2.5 py-2 text-left text-sm hover:bg-ink-3 disabled:opacity-50">
+                        {l.title}
+                        {l.id === card.listId ? <span className="text-xs text-mute">current</span> : <span className="text-xs text-mute">{(data.order[l.id] ?? []).length}</span>}
+                      </button>
+                    ))}
+                    <div className="mt-2 flex gap-2 border-t border-line pt-2">
+                      <button type="button" onClick={() => { api.placeCard(card.id, card.listId, 0); setPanel(null); }} className="h-8 flex-1 rounded-full border border-line-2 text-xs text-bone-2 hover:border-bone">To top</button>
+                      <button type="button" onClick={() => { api.placeCard(card.id, card.listId); setPanel(null); }} className="h-8 flex-1 rounded-full border border-line-2 text-xs text-bone-2 hover:border-bone">To bottom</button>
+                    </div>
+                  </Popover>
+                </div>
+              </aside>
+            )}
           </div>
         </article>
       </div>
@@ -257,13 +334,21 @@ function Section({ icon, title, right, children }: { icon: IconName; title: Reac
   );
 }
 
-function Description({ value, onSave }: { value: string; onSave: (v: string) => void }) {
+function Description({ value, onSave, readOnly }: { value: string; onSave: (v: string) => void; readOnly: boolean }) {
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(value);
   const save = () => {
     setEditing(false);
     if (draft !== value) onSave(draft.slice(0, LIMITS.description));
   };
+  if (readOnly) {
+    if (!value) return null;
+    return (
+      <Section icon="text" title="Description">
+        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-bone-2">{value}</p>
+      </Section>
+    );
+  }
   return (
     <Section
       icon="text"
@@ -303,9 +388,23 @@ function Description({ value, onSave }: { value: string; onSave: (v: string) => 
   );
 }
 
-function ChecklistBlock({ list, onChange, onDelete }: { list: Checklist; onChange: (c: Checklist) => void; onDelete: () => void }) {
+function ChecklistBlock({
+  list,
+  canEdit,
+  canTick,
+  onTick,
+  onChange,
+  onDelete,
+}: {
+  list: Checklist;
+  canEdit: boolean;
+  canTick: boolean;
+  onTick: (itemId: string, done: boolean) => void;
+  onChange: (c: Checklist) => void;
+  onDelete: () => void;
+}) {
   const [hideDone, setHideDone] = useState(false);
-  const [adding, setAdding] = useState(list.items.length === 0);
+  const [adding, setAdding] = useState(canEdit && list.items.length === 0);
   const [draft, setDraft] = useState('');
   const prog = checklistProgress([list]);
   const items = hideDone ? list.items.filter((i) => !i.done) : list.items;
@@ -317,11 +416,11 @@ function ChecklistBlock({ list, onChange, onDelete }: { list: Checklist; onChang
   return (
     <Section
       icon="checklist"
-      title={<InlineEdit value={list.title || 'Checklist'} label="Checklist name" maxLength={LIMITS.checklistTitle} onSave={(t) => onChange({ ...list, title: t })} className="font-medium" />}
+      title={canEdit ? <InlineEdit value={list.title || 'Checklist'} label="Checklist name" maxLength={LIMITS.checklistTitle} onSave={(t) => onChange({ ...list, title: t })} className="font-medium" /> : list.title || 'Checklist'}
       right={
         <div className="flex shrink-0 gap-1.5">
           {prog.done > 0 && <button type="button" onClick={() => setHideDone((v) => !v)} className="h-8 rounded-full border border-line-2 px-3 text-xs text-bone-2 hover:border-bone">{hideDone ? `Show checked (${prog.done})` : 'Hide checked'}</button>}
-          <button type="button" onClick={onDelete} className="h-8 rounded-full border border-line-2 px-3 text-xs text-bone-2 hover:border-red-400 hover:text-red-300">Delete</button>
+          {canEdit && <button type="button" onClick={onDelete} className="h-8 rounded-full border border-line-2 px-3 text-xs text-bone-2 hover:border-red-400 hover:text-red-300">Delete</button>}
         </div>
       }
     >
@@ -332,47 +431,55 @@ function ChecklistBlock({ list, onChange, onDelete }: { list: Checklist; onChang
             <input
               type="checkbox"
               checked={it.done}
-              onChange={(e) => onChange({ ...list, items: list.items.map((x) => (x.id === it.id ? { ...x, done: e.target.checked } : x)) })}
-              className="mt-1 size-4 shrink-0 accent-[#4fbf7a]"
+              disabled={!canTick}
+              onChange={(e) => onTick(it.id, e.target.checked)}
+              className="mt-1 size-4 shrink-0 accent-[#4fbf7a] disabled:cursor-not-allowed"
               aria-label={`Done: ${it.text}`}
             />
-            <InlineEdit
-              value={it.text}
-              label="Checklist item"
-              maxLength={LIMITS.item}
-              onSave={(t) => onChange({ ...list, items: list.items.map((x) => (x.id === it.id ? { ...x, text: t } : x)) })}
-              className={`flex-1 text-sm leading-relaxed ${it.done ? 'text-mute line-through' : ''}`}
-              inputClassName="text-sm"
-            />
-            <button type="button" onClick={() => onChange({ ...list, items: list.items.filter((x) => x.id !== it.id) })} className="grid size-7 shrink-0 place-items-center rounded-full text-mute opacity-0 hover:bg-ink hover:text-red-300 focus-visible:opacity-100 group-hover:opacity-100" aria-label={`Delete item ${it.text}`}>
-              <Icon name="x" className="size-3.5" />
-            </button>
+            {canEdit ? (
+              <InlineEdit
+                value={it.text}
+                label="Checklist item"
+                maxLength={LIMITS.item}
+                onSave={(t) => onChange({ ...list, items: list.items.map((x) => (x.id === it.id ? { ...x, text: t } : x)) })}
+                className={`flex-1 text-sm leading-relaxed ${it.done ? 'text-mute line-through' : ''}`}
+                inputClassName="text-sm"
+              />
+            ) : (
+              <span className={`flex-1 text-sm leading-relaxed ${it.done ? 'text-mute line-through' : ''}`}>{it.text}</span>
+            )}
+            {canEdit && (
+              <button type="button" onClick={() => onChange({ ...list, items: list.items.filter((x) => x.id !== it.id) })} className="grid size-7 shrink-0 place-items-center rounded-full text-mute opacity-0 hover:bg-ink hover:text-red-300 focus-visible:opacity-100 group-hover:opacity-100" aria-label={`Delete item ${it.text}`}>
+                <Icon name="x" className="size-3.5" />
+              </button>
+            )}
           </li>
         ))}
       </ul>
-      {adding ? (
-        <div className="mt-2">
-          <input
-            autoFocus
-            value={draft}
-            maxLength={LIMITS.item}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') { e.preventDefault(); add(); }
-              if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); setAdding(false); setDraft(''); }
-            }}
-            placeholder="Add an item, then Enter"
-            aria-label="New checklist item"
-            className="h-10 w-full rounded-xl border border-ember/50 bg-ink px-3 text-sm outline-none placeholder:text-mute"
-          />
-          <div className="mt-2 flex gap-2">
-            <button type="button" onClick={add} className="h-8 rounded-full bg-bone px-4 text-xs font-medium text-ink hover:bg-ember">Add</button>
-            <button type="button" onClick={() => { setAdding(false); setDraft(''); }} className="h-8 rounded-full px-3 text-xs text-mute hover:text-bone">Done</button>
+      {canEdit &&
+        (adding ? (
+          <div className="mt-2">
+            <input
+              autoFocus
+              value={draft}
+              maxLength={LIMITS.item}
+              onChange={(e) => setDraft(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') { e.preventDefault(); add(); }
+                if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); setAdding(false); setDraft(''); }
+              }}
+              placeholder="Add an item, then Enter"
+              aria-label="New checklist item"
+              className="h-10 w-full rounded-xl border border-ember/50 bg-ink px-3 text-sm outline-none placeholder:text-mute"
+            />
+            <div className="mt-2 flex gap-2">
+              <button type="button" onClick={add} className="h-8 rounded-full bg-bone px-4 text-xs font-medium text-ink hover:bg-ember">Add</button>
+              <button type="button" onClick={() => { setAdding(false); setDraft(''); }} className="h-8 rounded-full px-3 text-xs text-mute hover:text-bone">Done</button>
+            </div>
           </div>
-        </div>
-      ) : (
-        <button type="button" onClick={() => setAdding(true)} className="mt-2 h-8 rounded-full bg-ink-3/70 px-3.5 text-xs text-bone-2 hover:bg-ink-3 hover:text-bone">Add an item</button>
-      )}
+        ) : (
+          <button type="button" onClick={() => setAdding(true)} className="mt-2 h-8 rounded-full bg-ink-3/70 px-3.5 text-xs text-bone-2 hover:bg-ink-3 hover:text-bone">Add an item</button>
+        ))}
     </Section>
   );
 }
@@ -446,7 +553,23 @@ function LabelsPanel({ card, labels, api, onClose }: { card: KCard; labels: KLab
   );
 }
 
-function Comments({ comments, onAdd, onDelete, me }: { comments: BoardData['comments'][string]; onAdd: (b: string) => void; onDelete: (id: string) => void; me: BoardData['me'] }) {
+function Comments({
+  comments,
+  canWrite,
+  canDeleteAll,
+  myId,
+  onAdd,
+  onDelete,
+  me,
+}: {
+  comments: BoardData['comments'][string];
+  canWrite: boolean;
+  canDeleteAll: boolean;
+  myId: string;
+  onAdd: (b: string) => void;
+  onDelete: (id: string) => void;
+  me: BoardData['me'];
+}) {
   const [draft, setDraft] = useState('');
   const [focused, setFocused] = useState(false);
   const submit = () => {
@@ -454,27 +577,30 @@ function Comments({ comments, onAdd, onDelete, me }: { comments: BoardData['comm
     if (b) onAdd(b);
     setDraft('');
   };
+  if (!canWrite && comments.length === 0) return null;
   return (
     <Section icon="comment" title="Comments and notes">
-      <div className="flex gap-3">
-        <span className="shrink-0"><Avatar user={me} size={32} /></span>
-        <div className="flex-1">
-          <AutoTextarea
-            value={draft}
-            maxLength={LIMITS.comment}
-            onChange={(e) => setDraft(e.target.value)}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit(); }}
-            placeholder="Write a comment or note…"
-            aria-label="New comment"
-            className="min-h-10 w-full rounded-xl border border-line-2 bg-ink px-3 py-2.5 text-sm outline-none placeholder:text-mute focus:border-ember/60"
-          />
-          {(focused || draft) && (
-            <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={submit} disabled={!draft.trim()} className="mt-2 h-8 rounded-full bg-bone px-4 text-xs font-medium text-ink hover:bg-ember disabled:opacity-40">Save</button>
-          )}
+      {canWrite && (
+        <div className="flex gap-3">
+          <span className="shrink-0"><Avatar user={me} size={32} /></span>
+          <div className="flex-1">
+            <AutoTextarea
+              value={draft}
+              maxLength={LIMITS.comment}
+              onChange={(e) => setDraft(e.target.value)}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) submit(); }}
+              placeholder="Write a comment or note…"
+              aria-label="New comment"
+              className="min-h-10 w-full rounded-xl border border-line-2 bg-ink px-3 py-2.5 text-sm outline-none placeholder:text-mute focus:border-ember/60"
+            />
+            {(focused || draft) && (
+              <button type="button" onMouseDown={(e) => e.preventDefault()} onClick={submit} disabled={!draft.trim()} className="mt-2 h-8 rounded-full bg-bone px-4 text-xs font-medium text-ink hover:bg-ember disabled:opacity-40">Save</button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
       <ul className="mt-5 space-y-4">
         {comments.map((c) => (
           <li key={c.id} className="group flex gap-3">
@@ -482,7 +608,9 @@ function Comments({ comments, onAdd, onDelete, me }: { comments: BoardData['comm
             <div className="min-w-0 flex-1">
               <p className="text-xs text-mute"><span className="font-medium text-bone">{c.author.name}</span> · <RelativeTime iso={c.createdAt} /></p>
               <p className="mt-1 whitespace-pre-wrap break-words rounded-xl bg-ink-3/60 px-3 py-2 text-sm leading-relaxed text-bone-2">{c.body}</p>
-              <button type="button" onClick={() => confirm('Delete this comment?') && onDelete(c.id)} className="mt-1 text-xs text-mute opacity-0 hover:text-red-300 focus-visible:opacity-100 group-hover:opacity-100">Delete</button>
+              {(canDeleteAll || (canWrite && c.authorId === myId)) && (
+                <button type="button" onClick={() => confirm('Delete this comment?') && onDelete(c.id)} className="mt-1 text-xs text-mute opacity-0 hover:text-red-300 focus-visible:opacity-100 group-hover:opacity-100">Delete</button>
+              )}
             </div>
           </li>
         ))}
@@ -490,4 +618,3 @@ function Comments({ comments, onAdd, onDelete, me }: { comments: BoardData['comm
     </Section>
   );
 }
-

@@ -4,13 +4,20 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { deleteBoard } from '@/lib/actions/krama';
-import { LIMITS, PRIORITY_IDS, THEME_IDS, THEMES, dueState, type BoardData, type KCard, type Priority } from '@/lib/krama/model';
+import { ACCESS, LIMITS, PRIORITY_IDS, THEME_IDS, THEMES, dueState, type BoardData, type KCard, type Priority } from '@/lib/krama/model';
 import { addDays, daysBetween, formatShort } from '@/lib/krama/time';
 import { BoardView, MenuItem } from './BoardView';
 import { CardModal } from './CardModal';
 import { MonthCalendar, nextWorkingDay, useTodaySL, type CalItem } from './calendar';
+import { MembersView } from './MembersView';
 import { useBoard } from './store';
+import { RoleBadge, TeamProvider } from './team';
 import { Icon, LabelChip, Popover, PopTitle, PriorityMark, kfield } from './ui';
+
+type View = 'board' | 'calendar' | 'members';
+const VIEWS: View[] = ['board', 'calendar', 'members'];
+const VIEW_NAME: Record<View, string> = { board: 'Board', calendar: 'Calendar', members: 'Members & Roles' };
+const VIEW_ICON = { board: 'board', calendar: 'calendar', members: 'users' } as const;
 
 type DueFilter = 'overdue' | 'today' | 'week' | 'none' | 'done';
 const DUE_FILTERS: { id: DueFilter; name: string }[] = [
@@ -18,7 +25,7 @@ const DUE_FILTERS: { id: DueFilter; name: string }[] = [
   { id: 'today', name: 'Due today' },
   { id: 'week', name: 'Due in the next 7 days' },
   { id: 'none', name: 'No due date' },
-  { id: 'done', name: 'Marked complete' },
+  { id: 'done', name: 'Done' },
 ];
 
 /** Keep ?card= and ?view= in the address bar without a navigation (so links and reloads land on the same place). */
@@ -30,13 +37,14 @@ function setParam(key: string, value: string | null) {
 }
 
 export function BoardApp({ initial }: { initial: BoardData }) {
-  const { state, api, toasts, dismiss } = useBoard(initial);
-  const { board, lists, cards, labels } = state;
+  const { state, api, toasts, dismiss, isIdle } = useBoard(initial);
+  const { board, lists, cards, labels, roles, perm } = state;
+  const edit = perm.canEdit;
   const params = useSearchParams();
   const router = useRouter();
   const today = useTodaySL();
 
-  const [view, setView] = useState<'board' | 'calendar'>(params.get('view') === 'calendar' ? 'calendar' : 'board');
+  const [view, setView] = useState<View>(() => (VIEWS.includes(params.get('view') as View) ? (params.get('view') as View) : 'board'));
   const [openId, setOpenId] = useState<string | null>(() => {
     const id = params.get('card');
     return id && initial.cards[id] ? id : null;
@@ -46,6 +54,8 @@ export function BoardApp({ initial }: { initial: BoardData }) {
   const [fLabels, setFLabels] = useState<string[]>([]);
   const [fDue, setFDue] = useState<DueFilter[]>([]);
   const [fPrio, setFPrio] = useState<Priority[]>([]);
+  const [fRoles, setFRoles] = useState<string[]>([]);
+  const [fMine, setFMine] = useState(false);
   const [pop, setPop] = useState<'filter' | 'add' | 'menu' | 'boards' | null>(null);
   const [archiveOpen, setArchiveOpen] = useState(false);
   const [composerFor, setComposerFor] = useState<string | null>(null);
@@ -60,13 +70,14 @@ export function BoardApp({ initial }: { initial: BoardData }) {
     setOpenId(null);
     setParam('card', null);
   }, []);
-  const switchView = (v: 'board' | 'calendar') => {
+  const switchView = (v: View) => {
     setView(v);
-    setParam('view', v === 'calendar' ? v : null);
+    setParam('view', v === 'board' ? null : v);
   };
 
-  const filtering = !!(q || fLabels.length || fDue.length || fPrio.length);
-  const filterCount = fLabels.length + fDue.length + fPrio.length;
+  const allRoleId = roles.find((r) => r.code === 'ALL')?.id;
+  const filtering = !!(q || fLabels.length || fDue.length || fPrio.length || fRoles.length || fMine);
+  const filterCount = fLabels.length + fDue.length + fPrio.length + fRoles.length + (fMine ? 1 : 0);
   const visible = useCallback(
     (c: KCard) => {
       if (q) {
@@ -75,6 +86,8 @@ export function BoardApp({ initial }: { initial: BoardData }) {
       }
       if (fLabels.length && !fLabels.some((id) => c.labelIds.includes(id))) return false;
       if (fPrio.length && !fPrio.includes(c.priority)) return false;
+      if (fRoles.length && !fRoles.includes(c.roleId ?? 'none')) return false;
+      if (fMine && !(c.roleId && (perm.roleIds.includes(c.roleId) || c.roleId === allRoleId || (!!allRoleId && perm.roleIds.includes(allRoleId))))) return false;
       if (fDue.length) {
         const s = dueState(c, today);
         const ok = fDue.some((f) => {
@@ -88,9 +101,9 @@ export function BoardApp({ initial }: { initial: BoardData }) {
       }
       return true;
     },
-    [q, fLabels, fDue, fPrio, labels, today],
+    [q, fLabels, fDue, fPrio, fRoles, fMine, labels, today, perm.roleIds, allRoleId],
   );
-  const clearFilters = () => { setQuery(''); setFLabels([]); setFDue([]); setFPrio([]); };
+  const clearFilters = () => { setQuery(''); setFLabels([]); setFDue([]); setFPrio([]); setFRoles([]); setFMine(false); };
 
   const active = useMemo(() => Object.values(cards).filter((c) => !c.archived), [cards]);
   const shownCount = active.filter(visible).length;
@@ -102,13 +115,34 @@ export function BoardApp({ initial }: { initial: BoardData }) {
       const t = e.target as HTMLElement;
       if (e.metaKey || e.ctrlKey || e.altKey || openId || t.closest('input, textarea, select, [contenteditable], dialog')) return;
       if (e.key === '/') { e.preventDefault(); search.current?.focus(); }
-      else if (e.key === 'n' && lists[0]) { e.preventDefault(); switchView('board'); setComposerFor(lists[0].id); }
+      else if (e.key === 'n' && lists[0] && edit) { e.preventDefault(); switchView('board'); setComposerFor(lists[0].id); }
       else if (e.key === 'c') switchView('calendar');
       else if (e.key === 'b') switchView('board');
+      else if (e.key === 'm') switchView('members');
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   });
+
+  // Teammates' changes: quietly reload the board every 20 s and when the tab regains focus, but only when nothing
+  // is being saved, dragged, typed or open, so a refresh can never undo what you are doing.
+  const openRef = useRef(openId);
+  useEffect(() => {
+    openRef.current = openId;
+  }, [openId]);
+  useEffect(() => {
+    const sync = () => {
+      const typing = document.activeElement?.matches('input, textarea, select, [contenteditable]');
+      if (document.visibilityState !== 'visible' || !isIdle() || openRef.current || document.body.dataset.kDragging || typing || document.querySelector('.k-pop')) return;
+      router.refresh();
+    };
+    const id = setInterval(sync, 20_000);
+    window.addEventListener('focus', sync);
+    return () => {
+      clearInterval(id);
+      window.removeEventListener('focus', sync);
+    };
+  }, [isIdle, router]);
 
   const theme = THEMES[board.theme] ?? THEMES.ember;
   const calItems: CalItem[] = active
@@ -117,6 +151,7 @@ export function BoardApp({ initial }: { initial: BoardData }) {
   const addTarget = calList && lists.some((l) => l.id === calList) ? calList : lists[0]?.id;
 
   return (
+    <TeamProvider perm={perm} roles={roles} members={state.members}>
     <div data-krama-app className="relative flex h-dvh flex-col overflow-hidden pt-[var(--header-h)]" style={{ background: theme.bg }}>
       {/* ── toolbar ── */}
       <div className="relative z-30 flex flex-wrap items-center gap-2 px-[var(--gutter)] pb-3 pt-3">
@@ -124,13 +159,18 @@ export function BoardApp({ initial }: { initial: BoardData }) {
           <Icon name="back" />
         </Link>
         <div className="relative flex min-w-0 items-center gap-1">
-          <BoardTitle title={board.title} onSave={(t) => api.patchBoard({ title: t })} />
+          {edit ? <BoardTitle title={board.title} onSave={(t) => api.patchBoard({ title: t })} /> : <h1 className="truncate px-2 text-lg font-medium tracking-tight">{board.title}</h1>}
           <button type="button" data-popover-trigger onClick={() => setPop(pop === 'boards' ? null : 'boards')} className="grid size-8 shrink-0 place-items-center rounded-full text-mute hover:bg-ink/60 hover:text-bone" aria-label="Switch board" aria-expanded={pop === 'boards'}>
             <Icon name="next" className="size-4 rotate-90" />
           </button>
-          <button type="button" onClick={() => api.patchBoard({ starred: !board.starred })} className={`grid size-8 shrink-0 place-items-center rounded-full hover:bg-ink/60 ${board.starred ? 'text-[#f2c94c]' : 'text-mute hover:text-bone'}`} aria-label={board.starred ? 'Unstar board' : 'Star board'} aria-pressed={board.starred}>
+          {(perm.isOwner || perm.isAdmin) && <button type="button" onClick={() => api.patchBoard({ starred: !board.starred })} className={`grid size-8 shrink-0 place-items-center rounded-full hover:bg-ink/60 ${board.starred ? 'text-[#f2c94c]' : 'text-mute hover:text-bone'}`} aria-label={board.starred ? 'Unstar board' : 'Star board'} aria-pressed={board.starred}>
             <svg viewBox="0 0 24 24" className="size-4" fill={board.starred ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth={1.8} strokeLinejoin="round" aria-hidden><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" /></svg>
-          </button>
+          </button>}
+          {perm.access !== 'owner' && (
+            <span className={`ml-1 hidden shrink-0 rounded-full px-2.5 py-1 text-[0.68rem] sm:inline ${edit ? 'bg-ember/15 text-ember' : 'bg-[#5fd0e6]/15 text-[#5fd0e6]'}`} title={ACCESS[perm.access].body}>
+              {ACCESS[perm.access].name}
+            </span>
+          )}
           <Popover open={pop === 'boards'} onClose={() => setPop(null)} label="Your boards" className="w-64 p-1.5">
             {state.boards.map((b) => (
               <Link key={b.id} href={`/labs/krama/b/${b.id}`} onClick={() => setPop(null)} className={`flex items-center gap-2.5 rounded-xl px-2.5 py-2 text-sm hover:bg-ink-3 ${b.id === board.id ? 'bg-ink-3' : ''}`}>
@@ -142,12 +182,17 @@ export function BoardApp({ initial }: { initial: BoardData }) {
           </Popover>
         </div>
 
-        <div className="ml-1 flex rounded-full border border-line-2 bg-ink/50 p-0.5 backdrop-blur" role="tablist" aria-label="View">
-          {(['board', 'calendar'] as const).map((v) => (
-            <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => switchView(v)} className={`flex h-8 items-center gap-1.5 rounded-full px-3 text-sm capitalize transition-colors ${view === v ? 'bg-bone text-ink' : 'text-bone-2 hover:text-bone'}`}>
-              <Icon name={v} className="size-3.5" /> {v}
+        <div className="ml-1 flex max-w-full overflow-x-auto rounded-full border border-line-2 bg-ink/50 p-0.5 backdrop-blur [scrollbar-width:none]" role="tablist" aria-label="View">
+          {VIEWS.map((v) => (
+            <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => switchView(v)} className={`flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-sm transition-colors ${view === v ? 'bg-bone text-ink' : 'text-bone-2 hover:text-bone'}`}>
+              <Icon name={VIEW_ICON[v]} className="size-3.5" /> {VIEW_NAME[v]}
             </button>
           ))}
+          {perm.isAdmin && (
+            <Link href={`/labs/krama/admin?from=${board.id}`} className="flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-sm text-ember transition-colors hover:bg-ember/15">
+              <Icon name="shield" className="size-3.5" /> Admin
+            </Link>
+          )}
         </div>
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -183,6 +228,19 @@ export function BoardApp({ initial }: { initial: BoardData }) {
                   <Check key={f.id} checked={fDue.includes(f.id)} onChange={(on) => setFDue((s) => (on ? [...s, f.id] : s.filter((x) => x !== f.id)))}>{f.name}</Check>
                 ))}
               </FilterGroup>
+              {roles.length > 0 && (
+                <FilterGroup title="Role">
+                  {perm.roleIds.length > 0 && (
+                    <Check checked={fMine} onChange={setFMine}><span className="font-medium text-bone">Cards for my roles</span></Check>
+                  )}
+                  {roles.map((r) => (
+                    <Check key={r.id} checked={fRoles.includes(r.id)} onChange={(on) => setFRoles((s) => (on ? [...s, r.id] : s.filter((x) => x !== r.id)))}>
+                      <span className="flex items-center gap-2"><RoleBadge role={r} /> <span className="truncate text-xs text-mute">{r.name}</span></span>
+                    </Check>
+                  ))}
+                  <Check checked={fRoles.includes('none')} onChange={(on) => setFRoles((s) => (on ? [...s, 'none'] : s.filter((x) => x !== 'none')))}>No role</Check>
+                </FilterGroup>
+              )}
               <FilterGroup title="Priority">
                 {[...PRIORITY_IDS].reverse().map((p) => (
                   <Check key={p} checked={fPrio.includes(p)} onChange={(on) => setFPrio((s) => (on ? [...s, p] : s.filter((x) => x !== p)))}>
@@ -191,11 +249,11 @@ export function BoardApp({ initial }: { initial: BoardData }) {
                 ))}
               </FilterGroup>
               <p className="mt-3 border-t border-line pt-3 text-xs text-mute">Cards matching any ticked box in each group are shown.</p>
-              {filterCount > 0 && <button type="button" onClick={() => { setFLabels([]); setFDue([]); setFPrio([]); }} className="mt-2 h-9 w-full rounded-full border border-line-2 text-sm text-bone-2 hover:border-bone">Clear filters</button>}
+              {filterCount > 0 && <button type="button" onClick={() => { setFLabels([]); setFDue([]); setFPrio([]); setFRoles([]); setFMine(false); }} className="mt-2 h-9 w-full rounded-full border border-line-2 text-sm text-bone-2 hover:border-bone">Clear filters</button>}
             </Popover>
           </div>
 
-          <div className="relative">
+          {edit && <div className="relative">
             <button type="button" data-popover-trigger onClick={() => setPop(pop === 'add' ? null : 'add')} disabled={!lists.length} className="flex h-9 items-center gap-1.5 rounded-full bg-bone px-3.5 text-sm font-medium text-ink transition-colors hover:bg-ember disabled:opacity-40" aria-expanded={pop === 'add'} title="Quick add (N)">
               <Icon name="plus" strokeWidth={2.2} /> Add<span className="hidden sm:inline"> card</span>
             </button>
@@ -203,7 +261,7 @@ export function BoardApp({ initial }: { initial: BoardData }) {
               <PopTitle onClose={() => setPop(null)}>Quick add</PopTitle>
               <QuickAdd lists={lists} today={today} onAdd={(listId, title, due, openAfter) => { const id = api.addCard(listId, title, { dueDate: due }); if (openAfter) { setPop(null); open(id); } }} />
             </Popover>
-          </div>
+          </div>}
 
           <div className="relative">
             <button type="button" data-popover-trigger onClick={() => setPop(pop === 'menu' ? null : 'menu')} className="grid size-9 place-items-center rounded-full border border-line-2 bg-ink/50 text-bone-2 backdrop-blur hover:border-bone hover:text-bone" aria-label="Board menu" aria-expanded={pop === 'menu'}>
@@ -211,6 +269,7 @@ export function BoardApp({ initial }: { initial: BoardData }) {
             </button>
             <Popover open={pop === 'menu'} onClose={() => setPop(null)} label="Board menu" align="right" className="w-80">
               <PopTitle onClose={() => setPop(null)}>Board</PopTitle>
+              {edit && <>
               <p className="px-1 text-xs text-mute">Background</p>
               <div className="mt-2 grid grid-cols-4 gap-2">
                 {THEME_IDS.map((t) => (
@@ -219,18 +278,20 @@ export function BoardApp({ initial }: { initial: BoardData }) {
                   </button>
                 ))}
               </div>
-              <div className="mt-3 border-t border-line pt-2">
+              </>}
+              <div className={edit ? 'mt-3 border-t border-line pt-2' : ''}>
+                <MenuItem icon="users" onClick={() => { setPop(null); switchView('members'); }}>Members &amp; Roles</MenuItem>
                 <MenuItem icon="archive" onClick={() => { setPop(null); setArchiveOpen(true); }}>Archived cards ({archived.length})</MenuItem>
-                <MenuItem icon="trash" danger onClick={async () => {
+                {(perm.isOwner || perm.isAdmin) && <MenuItem icon="trash" danger onClick={async () => {
                   if (!confirm(`Delete the board "${board.title}" with all its lists and cards? This can't be undone.`)) return;
                   setPop(null);
                   const r = await deleteBoard(board.id).catch(() => null);
                   if (r?.ok) router.push('/labs/krama');
-                  else alert('The board could not be deleted. Please try again.');
-                }}>Delete board</MenuItem>
+                  else alert(r && !r.ok ? r.error : 'The board could not be deleted. Please try again.');
+                }}>Delete board</MenuItem>}
               </div>
               <p className="mt-2 border-t border-line px-1 pt-3 text-[0.7rem] leading-relaxed text-mute">
-                Shortcuts: <kbd className="font-mono text-bone-2">/</kbd> search · <kbd className="font-mono text-bone-2">N</kbd> new card · <kbd className="font-mono text-bone-2">B</kbd> board · <kbd className="font-mono text-bone-2">C</kbd> calendar · <kbd className="font-mono text-bone-2">Space</kbd> pick up a focused card, arrows to move
+                Shortcuts: <kbd className="font-mono text-bone-2">/</kbd> search{edit && <> · <kbd className="font-mono text-bone-2">N</kbd> new card</>} · <kbd className="font-mono text-bone-2">B</kbd> board · <kbd className="font-mono text-bone-2">C</kbd> calendar · <kbd className="font-mono text-bone-2">M</kbd> members{edit && <> · <kbd className="font-mono text-bone-2">Space</kbd> pick up a focused card, arrows to move</>}
               </p>
             </Popover>
           </div>
@@ -247,15 +308,17 @@ export function BoardApp({ initial }: { initial: BoardData }) {
       {/* ── content ── */}
       {view === 'board' ? (
         <BoardView data={state} api={api} visible={visible} filtering={filtering} onOpen={open} composerFor={composerFor} setComposerFor={setComposerFor} />
+      ) : view === 'members' ? (
+        <MembersView data={state} api={api} />
       ) : (
         <div className="flex min-h-0 flex-1 px-[var(--gutter)] pb-4">
           <MonthCalendar
             items={calItems}
             onOpen={open}
-            onMove={(id, date) => api.patchCard(id, { dueDate: date })}
-            onAdd={addTarget ? (date, title) => api.addCard(addTarget, title.slice(0, LIMITS.title), { dueDate: date }) : undefined}
+            onMove={edit ? (id, date) => api.patchCard(id, { dueDate: date }) : undefined}
+            onAdd={edit && addTarget ? (date, title) => api.addCard(addTarget, title.slice(0, LIMITS.title), { dueDate: date }) : undefined}
             aside={
-              lists.length > 0 && (
+              edit && lists.length > 0 && (
                 <div className="rounded-[1.4rem] border border-line bg-ink/70 p-4 backdrop-blur-xl">
                   <label className="eyebrow" htmlFor="k-cal-list">New cards from the calendar go to</label>
                   <select id="k-cal-list" value={addTarget} onChange={(e) => setCalList(e.target.value)} className={`${kfield} mt-2 [color-scheme:dark]`}>
@@ -271,7 +334,7 @@ export function BoardApp({ initial }: { initial: BoardData }) {
       )}
 
       {openId && cards[openId] && <CardModal key={openId} cardId={openId} data={state} api={api} onClose={close} />}
-      {archiveOpen && <ArchiveDrawer cards={archived} lists={lists} onClose={() => setArchiveOpen(false)} onOpen={(id) => { setArchiveOpen(false); open(id); }} onRestore={(id) => api.patchCard(id, { archived: false })} onDelete={(id) => api.deleteCard(id)} />}
+      {archiveOpen && <ArchiveDrawer canEdit={edit} cards={archived} lists={lists} onClose={() => setArchiveOpen(false)} onOpen={(id) => { setArchiveOpen(false); open(id); }} onRestore={(id) => api.patchCard(id, { archived: false })} onDelete={(id) => api.deleteCard(id)} />}
 
       {/* toasts */}
       <div className="pointer-events-none fixed bottom-5 left-1/2 z-[95] flex -translate-x-1/2 flex-col items-center gap-2" aria-live="polite">
@@ -283,6 +346,7 @@ export function BoardApp({ initial }: { initial: BoardData }) {
         ))}
       </div>
     </div>
+    </TeamProvider>
   );
 }
 
@@ -376,7 +440,7 @@ function QuickAdd({ lists, today, onAdd }: { lists: BoardData['lists']; today: s
   );
 }
 
-function ArchiveDrawer({ cards, lists, onClose, onOpen, onRestore, onDelete }: { cards: KCard[]; lists: BoardData['lists']; onClose: () => void; onOpen: (id: string) => void; onRestore: (id: string) => void; onDelete: (id: string) => void }) {
+function ArchiveDrawer({ canEdit, cards, lists, onClose, onOpen, onRestore, onDelete }: { canEdit: boolean; cards: KCard[]; lists: BoardData['lists']; onClose: () => void; onOpen: (id: string) => void; onRestore: (id: string) => void; onDelete: (id: string) => void }) {
   useEffect(() => {
     const k = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     window.addEventListener('keydown', k);
@@ -396,10 +460,10 @@ function ArchiveDrawer({ cards, lists, onClose, onOpen, onRestore, onDelete }: {
             <li key={c.id} className="rounded-xl border border-line bg-ink p-3">
               <button type="button" onClick={() => onOpen(c.id)} className="block w-full text-left text-sm hover:underline">{c.title}</button>
               <p className="mt-0.5 text-xs text-mute">in {lists.find((l) => l.id === c.listId)?.title}</p>
-              <div className="mt-2 flex gap-2">
+              {canEdit && <div className="mt-2 flex gap-2">
                 <button type="button" onClick={() => onRestore(c.id)} className="h-7 rounded-full border border-line-2 px-3 text-xs text-bone-2 hover:border-bone">Restore</button>
                 <button type="button" onClick={() => confirm(`Delete "${c.title}" for good?`) && onDelete(c.id)} className="h-7 rounded-full border border-line-2 px-3 text-xs text-bone-2 hover:border-red-400 hover:text-red-300">Delete</button>
-              </div>
+              </div>}
             </li>
           ))}
         </ul>

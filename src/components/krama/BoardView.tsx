@@ -25,6 +25,7 @@ import { createPortal } from 'react-dom';
 import { checklistProgress, COLORS, LIMITS, type BoardData, type KCard, type KLabel, type KList } from '@/lib/krama/model';
 import type { BoardApi } from './store';
 import { DueBadge, Icon, InlineEdit, LabelChip, Popover, PriorityMark, useIsClient } from './ui';
+import { RoleBadge, useTeam } from './team';
 
 type Props = {
   data: BoardData;
@@ -96,6 +97,7 @@ export function BoardView({ data, api, visible, filtering, onOpen, composerFor, 
   );
 
   const onDragStart = ({ active: a }: DragStartEvent) => {
+    document.body.dataset.kDragging = '1'; // background refresh waits while this is set
     setActive({ id: a.id as string, type: a.data.current?.type });
     snapshot.current = orderRef.current;
   };
@@ -120,6 +122,7 @@ export function BoardView({ data, api, visible, filtering, onOpen, composerFor, 
   };
 
   const onDragEnd = ({ active: a, over }: DragEndEvent) => {
+    delete document.body.dataset.kDragging;
     const type = a.data.current?.type;
     setActive(null);
     const before = snapshot.current;
@@ -153,6 +156,7 @@ export function BoardView({ data, api, visible, filtering, onOpen, composerFor, 
   };
 
   const onDragCancel = () => {
+    delete document.body.dataset.kDragging;
     setActive(null);
     if (snapshot.current) api.setOrder(snapshot.current);
     snapshot.current = null;
@@ -182,7 +186,8 @@ export function BoardView({ data, api, visible, filtering, onOpen, composerFor, 
             />
           ))}
         </SortableContext>
-        <AddList api={api} empty={lists.length === 0} />
+        {data.perm.canEdit && <AddList api={api} empty={lists.length === 0} />}
+        {!data.perm.canEdit && lists.length === 0 && <p className="rounded-2xl border border-dashed border-line-2 bg-ink/40 p-6 text-sm text-mute">This board has no lists yet.</p>}
       </div>
       {/* portalled so no blurred ancestor (backdrop-filter) can offset the fixed-position overlay */}
       {isClient && createPortal(
@@ -228,7 +233,9 @@ function ListColumn({
   composing: boolean;
   setComposing: (on: boolean) => void;
 }) {
-  const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id: list.id, data: { type: 'list' } });
+  const { perm } = useTeam();
+  const edit = perm.canEdit;
+  const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id: list.id, data: { type: 'list' }, disabled: !edit });
   const [menu, setMenu] = useState(false);
   const shown = ids.filter((id) => cards[id] && visible(cards[id]));
   const hidden = ids.length - shown.length;
@@ -240,12 +247,16 @@ function ListColumn({
       className={`k-list flex max-h-full w-[17.5rem] shrink-0 flex-col rounded-2xl border border-line bg-ink/75 backdrop-blur-xl ${isDragging ? 'opacity-40' : ''}`}
       aria-label={`List: ${list.title}`}
     >
-      <header className="relative flex items-start gap-1 p-2 pb-1" {...attributes} {...listeners} style={{ cursor: 'grab' }} aria-roledescription="draggable list">
+      <header className="relative flex items-start gap-1 p-2 pb-1" {...(edit ? { ...attributes, ...listeners, 'aria-roledescription': 'draggable list' } : {})} style={{ cursor: edit ? 'grab' : undefined }}>
         <div className="min-w-0 flex-1 px-1 py-1" onPointerDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-          <InlineEdit value={list.title} label="List name" maxLength={LIMITS.listTitle} onSave={(t) => api.renameList(list.id, t)} className="w-full text-[0.95rem] font-medium leading-snug" inputClassName="text-[0.95rem] font-medium" />
+          {edit ? (
+            <InlineEdit value={list.title} label="List name" maxLength={LIMITS.listTitle} onSave={(t) => api.renameList(list.id, t)} className="w-full text-[0.95rem] font-medium leading-snug" inputClassName="text-[0.95rem] font-medium" />
+          ) : (
+            <h3 className="text-[0.95rem] font-medium leading-snug">{list.title}</h3>
+          )}
         </div>
         <span className="mt-1.5 shrink-0 rounded-full bg-ink-3 px-2 py-0.5 font-mono text-[0.65rem] tabular-nums text-mute">{ids.length}</span>
-        <div className="relative" onPointerDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+        {edit && <div className="relative" onPointerDown={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
           <button type="button" data-popover-trigger onClick={() => setMenu((v) => !v)} className="grid size-8 place-items-center rounded-full text-mute hover:bg-ink-3 hover:text-bone" aria-label={`Actions for list ${list.title}`} aria-expanded={menu}>
             <Icon name="more" strokeWidth={3} />
           </button>
@@ -263,7 +274,7 @@ function ListColumn({
               if (!ids.length || confirm(`Delete the list "${list.title}" and its ${ids.length} ${ids.length === 1 ? 'card' : 'cards'}? This can't be undone.`)) api.deleteList(list.id);
             }}>Delete list</MenuItem>
           </Popover>
-        </div>
+        </div>}
       </header>
 
       <SortableContext items={shown} strategy={verticalListSortingStrategy}>
@@ -275,15 +286,19 @@ function ListColumn({
       </SortableContext>
       {filtering && hidden > 0 && <p className="px-3 pb-1 text-[0.7rem] text-mute">{hidden} hidden by filters</p>}
 
-      <div className="p-2 pt-1">
-        {composing ? (
-          <Composer onAdd={(t) => api.addCard(list.id, t)} onClose={() => setComposing(false)} />
-        ) : (
-          <button type="button" onClick={() => setComposing(true)} className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-sm text-mute transition-colors hover:bg-ink-3 hover:text-bone">
-            <Icon name="plus" /> Add a card
-          </button>
-        )}
-      </div>
+      {edit ? (
+        <div className="p-2 pt-1">
+          {composing ? (
+            <Composer onAdd={(t) => api.addCard(list.id, t)} onClose={() => setComposing(false)} />
+          ) : (
+            <button type="button" onClick={() => setComposing(true)} className="flex w-full items-center gap-2 rounded-xl px-2.5 py-2 text-sm text-mute transition-colors hover:bg-ink-3 hover:text-bone">
+              <Icon name="plus" /> Add a card
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="h-2" />
+      )}
     </section>
   );
 }
@@ -373,7 +388,9 @@ function AddList({ api, empty }: { api: BoardApi; empty: boolean }) {
 
 // ─────────────────────────────── Card ───────────────────────────────
 const SortableCard = memo(function SortableCard({ card, labels, commentCount, onOpen, api }: { card: KCard; labels: KLabel[]; commentCount: number; onOpen: (id: string) => void; api: BoardApi }) {
-  const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id: card.id, data: { type: 'card', listId: card.listId } });
+  const { perm, canTick } = useTeam();
+  const { setNodeRef, attributes, listeners, transform, transition, isDragging } = useSortable({ id: card.id, data: { type: 'card', listId: card.listId }, disabled: !perm.canEdit });
+  const tickable = canTick(card);
   return (
     <li
       ref={setNodeRef}
@@ -385,19 +402,21 @@ const SortableCard = memo(function SortableCard({ card, labels, commentCount, on
         listeners?.onKeyDown?.(e);
         if (e.key === 'Enter' && !e.defaultPrevented) onOpen(card.id);
       }}
-      aria-roledescription="draggable card"
-      aria-label={`${card.title}. Press Enter to open, Space to move.`}
+      aria-roledescription={perm.canEdit ? 'draggable card' : 'card'}
+      aria-label={`${card.title}.${card.dueDone ? ' Done.' : ''} Press Enter to open${perm.canEdit ? ', Space to move' : ''}.`}
       className={`k-card relative cursor-pointer rounded-xl outline-offset-2 ${isDragging ? 'opacity-30' : ''}`}
     >
-      <CardFace card={card} labels={labels} commentCount={commentCount} onToggleDone={() => api.patchCard(card.id, { dueDone: !card.dueDone })} />
+      <CardFace card={card} labels={labels} commentCount={commentCount} onToggleDone={tickable ? () => api.setDone(card.id, !card.dueDone) : undefined} />
     </li>
   );
 });
 
 export function CardFace({ card, labels, commentCount = 0, lifted = false, onToggleDone }: { card: KCard; labels: KLabel[]; commentCount?: number; lifted?: boolean; onToggleDone?: () => void }) {
+  const { roleOf } = useTeam();
+  const role = roleOf(card.roleId);
   const cardLabels = card.labelIds.map((id) => labels.find((l) => l.id === id)).filter(Boolean) as KLabel[];
   const prog = checklistProgress(card.checklists);
-  const hasMeta = !!(card.dueDate || card.description || prog.total || card.priority !== 'none' || commentCount);
+  const hasMeta = !!(card.dueDate || card.description || prog.total || card.priority !== 'none' || commentCount || role);
   return (
     <div className={`group overflow-hidden rounded-xl border bg-ink-2 transition-[border-color,box-shadow,transform] duration-300 ${lifted ? 'border-ember/60 shadow-2xl shadow-black/70' : 'border-line hover:border-line-2 hover:shadow-lg hover:shadow-black/40'}`}>
       {card.cover && <div className="h-8" style={{ background: COLORS[card.cover].bg }} aria-hidden />}
@@ -407,9 +426,33 @@ export function CardFace({ card, labels, commentCount = 0, lifted = false, onTog
             {cardLabels.map((l) => <LabelChip key={l.id} label={l} />)}
           </div>
         )}
-        <p className={`break-words text-sm leading-snug ${card.dueDone ? 'text-bone-2' : ''}`}>{card.title}</p>
+        <div className="flex items-start gap-2">
+          {(card.dueDone || onToggleDone) && (
+            <button
+              type="button"
+              disabled={!onToggleDone}
+              onClick={(e) => { e.stopPropagation(); onToggleDone?.(); }}
+              onKeyDown={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+              onMouseDown={(e) => e.stopPropagation()}
+              onTouchStart={(e) => e.stopPropagation()}
+              aria-label={card.dueDone ? `Mark "${card.title}" as not done` : `Tick "${card.title}" as done`}
+              aria-pressed={card.dueDone}
+              title={onToggleDone ? (card.dueDone ? 'Done. Click to untick' : 'Tick as done') : 'Done'}
+              className={`mt-px grid size-[18px] shrink-0 place-items-center rounded-full border transition-all duration-200 ${
+                card.dueDone
+                  ? 'border-[#4fbf7a] bg-[#4fbf7a] text-[#06200f]'
+                  : 'border-bone-2/50 text-transparent opacity-40 hover:border-[#4fbf7a] hover:text-[#4fbf7a] focus-visible:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100'
+              } disabled:cursor-default`}
+            >
+              <Icon name="check" className="size-3" strokeWidth={3} />
+            </button>
+          )}
+          <p className={`min-w-0 flex-1 break-words text-sm leading-snug ${card.dueDone ? 'text-mute line-through decoration-bone/30' : ''}`}>{card.title}</p>
+        </div>
         {hasMeta && (
           <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-mute">
+            {role && <RoleBadge role={role} />}
             {card.dueDate && <DueBadge card={card} onToggle={onToggleDone} />}
             <PriorityMark priority={card.priority} />
             {card.description && <span title="Has a description"><Icon name="text" className="size-3.5" /><span className="sr-only">Has a description</span></span>}

@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import * as A from '@/lib/actions/krama';
 import type { KramaResult } from '@/lib/actions/krama';
-import { uid, type BoardData, type KBoard, type KCard, type KComment, type KLabel, type KList } from '@/lib/krama/model';
+import { uid, type BoardData, type KBoard, type KCard, type KComment, type KLabel, type KList, type KMember, type KRole } from '@/lib/krama/model';
 
 /**
  * Board state for the client. Every change is applied locally first (so the UI never waits on the network) and
@@ -12,7 +12,8 @@ import { uid, type BoardData, type KBoard, type KCard, type KComment, type KLabe
  * order they were made. If a save fails, the user gets a toast and the board reloads from the server.
  */
 
-export type CardPatch = Partial<Omit<KCard, 'id' | 'listId' | 'createdAt'>>;
+/** Fields a full-access person edits. Ticking done goes through setDone (it has its own permission rule). */
+export type CardPatch = Partial<Omit<KCard, 'id' | 'listId' | 'createdAt' | 'dueDone' | 'doneBy' | 'doneAt'>>;
 
 type Act =
   | { t: 'reset'; data: BoardData }
@@ -22,14 +23,18 @@ type Act =
   | { t: 'list/delete'; id: string }
   | { t: 'list/order'; ids: string[] }
   | { t: 'card/add'; card: KCard; index?: number }
-  | { t: 'card/patch'; id: string; patch: CardPatch }
+  | { t: 'card/patch'; id: string; patch: Partial<KCard> }
   | { t: 'card/place'; id: string; listId: string; order: string[] }
   | { t: 'card/delete'; id: string }
   | { t: 'order'; order: Record<string, string[]> }
   | { t: 'label/save'; label: KLabel }
   | { t: 'label/delete'; id: string }
   | { t: 'comment/add'; comment: KComment }
-  | { t: 'comment/delete'; cardId: string; id: string };
+  | { t: 'comment/delete'; cardId: string; id: string }
+  | { t: 'role/save'; role: KRole }
+  | { t: 'role/delete'; id: string }
+  | { t: 'member/save'; member: KMember }
+  | { t: 'member/delete'; id: string };
 
 const without = (ids: string[], id: string) => ids.filter((x) => x !== id);
 
@@ -101,6 +106,21 @@ function reducer(s: BoardData, a: Act): BoardData {
       return { ...s, comments: { ...s.comments, [a.comment.cardId]: [a.comment, ...(s.comments[a.comment.cardId] ?? [])] } };
     case 'comment/delete':
       return { ...s, comments: { ...s.comments, [a.cardId]: (s.comments[a.cardId] ?? []).filter((c) => c.id !== a.id) } };
+    case 'role/save': {
+      const exists = s.roles.some((r) => r.id === a.role.id);
+      return { ...s, roles: exists ? s.roles.map((r) => (r.id === a.role.id ? a.role : r)) : [...s.roles, a.role] };
+    }
+    case 'role/delete': {
+      const cards = Object.fromEntries(Object.entries(s.cards).map(([id, c]) => [id, c.roleId === a.id ? { ...c, roleId: null } : c]));
+      const members = s.members.map((m) => ({ ...m, roleIds: without(m.roleIds, a.id) }));
+      return { ...s, roles: s.roles.filter((r) => r.id !== a.id), cards, members };
+    }
+    case 'member/save': {
+      const exists = s.members.some((m) => m.id === a.member.id);
+      return { ...s, members: exists ? s.members.map((m) => (m.id === a.member.id ? a.member : m)) : [...s.members, a.member] };
+    }
+    case 'member/delete':
+      return { ...s, members: s.members.filter((m) => m.id !== a.id) };
   }
 }
 
@@ -126,8 +146,12 @@ export function useBoard(initial: BoardData) {
   }, []);
   const dismiss = useCallback((id: number) => setToasts((t) => t.filter((x) => x.id !== id)), []);
 
+  // saves still in flight: background refresh waits for zero so it never overwrites a change being saved
+  const pending = useRef(0);
   const save = useCallback(
     (p: Promise<KramaResult>) => {
+      pending.current++;
+      p.finally(() => { pending.current--; }).catch(() => {}); // failures are handled just below
       p.then((r) => {
         if (!r.ok) {
           toast(r.error, 'error');
@@ -179,7 +203,7 @@ export function useBoard(initial: BoardData) {
       addCard(listId: string, title: string, extra: { dueDate?: string | null; top?: boolean } = {}) {
         const card: KCard = {
           id: uid(), listId, title, description: '', dueDate: extra.dueDate ?? null, dueTime: null, dueDone: false, priority: 'none',
-          cover: null, labelIds: [], checklists: [], archived: false, createdAt: new Date().toISOString(),
+          cover: null, labelIds: [], checklists: [], archived: false, roleId: null, doneBy: null, doneAt: null, createdAt: new Date().toISOString(),
         };
         dispatch({ t: 'card/add', card, index: extra.top ? 0 : undefined });
         const order = extra.top ? [card.id, ...(ref.current.order[listId] ?? [])] : undefined;
@@ -189,6 +213,19 @@ export function useBoard(initial: BoardData) {
       patchCard(id: string, patch: CardPatch) {
         dispatch({ t: 'card/patch', id, patch });
         save(A.updateCard(boardId, id, patch));
+      },
+      /** Tick a card done (server checks the role rule). */
+      setDone(id: string, done: boolean) {
+        dispatch({ t: 'card/patch', id, patch: { dueDone: done, doneBy: done ? ref.current.me.id : null, doneAt: done ? new Date().toISOString() : null } });
+        save(A.setCardDone(boardId, id, done));
+      },
+      /** Tick one checklist item. */
+      setItem(cardId: string, checklistId: string, itemId: string, done: boolean) {
+        const card = ref.current.cards[cardId];
+        if (!card) return;
+        const checklists = card.checklists.map((cl) => (cl.id === checklistId ? { ...cl, items: cl.items.map((i) => (i.id === itemId ? { ...i, done } : i)) } : cl));
+        dispatch({ t: 'card/patch', id: cardId, patch: { checklists } });
+        save(A.setChecklistItem(boardId, cardId, checklistId, itemId, done));
       },
       /** Put a card into `listId` at `index` (end when omitted) and save that list's order. */
       placeCard(id: string, listId: string, index?: number) {
@@ -221,7 +258,7 @@ export function useBoard(initial: BoardData) {
       // comments
       addComment(cardId: string, body: string) {
         const me = ref.current.me;
-        const comment: KComment = { id: uid(), cardId, body, createdAt: new Date().toISOString(), author: { name: me.name, image: me.image } };
+        const comment: KComment = { id: uid(), cardId, body, createdAt: new Date().toISOString(), authorId: me.id, author: { name: me.name, image: me.image } };
         dispatch({ t: 'comment/add', comment });
         save(A.addComment(boardId, { id: comment.id, cardId, body }));
       },
@@ -229,11 +266,41 @@ export function useBoard(initial: BoardData) {
         dispatch({ t: 'comment/delete', cardId, id });
         save(A.deleteComment(boardId, id));
       },
+      // roles and members (Krama admin)
+      saveRole(role: KRole) {
+        const r = { ...role, code: role.code.trim().toUpperCase() };
+        dispatch({ t: 'role/save', role: r });
+        save(A.saveRole(boardId, r));
+      },
+      deleteRole(id: string) {
+        dispatch({ t: 'role/delete', id });
+        save(A.deleteRole(boardId, id));
+      },
+      addMember(input: { email: string; name: string; access: KMember['access']; roleIds: string[] }) {
+        const member: KMember = { id: uid(), email: input.email.trim().toLowerCase(), name: input.name.trim(), access: input.access, roleIds: input.roleIds, account: null };
+        dispatch({ t: 'member/save', member });
+        // reload after a successful add so the member's account (name, photo, signed-in status) shows straight away
+        save(A.addMember(boardId, { id: member.id, email: member.email, name: member.name, access: member.access, roleIds: member.roleIds }).then((r) => {
+          if (r.ok) router.refresh();
+          return r;
+        }));
+      },
+      updateMember(id: string, patch: Partial<Pick<KMember, 'name' | 'access' | 'roleIds'>>) {
+        const m = ref.current.members.find((x) => x.id === id);
+        if (!m) return;
+        dispatch({ t: 'member/save', member: { ...m, ...patch } });
+        save(A.updateMember(boardId, id, patch));
+      },
+      removeMember(id: string) {
+        dispatch({ t: 'member/delete', id });
+        save(A.removeMember(boardId, id));
+      },
     }),
-    [boardId, save],
+    [boardId, save, router],
   );
 
-  return { state, api, toasts, toast, dismiss };
+  const isIdle = useCallback(() => pending.current === 0, []);
+  return { state, api, toasts, toast, dismiss, isIdle };
 }
 
 export type BoardApi = ReturnType<typeof useBoard>['api'];
