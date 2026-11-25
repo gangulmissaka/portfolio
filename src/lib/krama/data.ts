@@ -39,6 +39,7 @@ export async function listBoards(user: SessionUser) {
       starred: B.starred,
       userId: B.userId,
       ownerName: U.name,
+      ownerEmail: U.email,
       updatedAt: B.updatedAt,
       lists: sql<number>`(select count(*)::int from "krama_list" where "krama_list"."boardId" = ${bid})`,
       cards: sql<number>`(select count(*)::int from "krama_card" where "krama_card"."boardId" = ${bid} and not "krama_card"."archived")`,
@@ -50,6 +51,8 @@ export async function listBoards(user: SessionUser) {
     .innerJoin(U, eq(U.id, B.userId))
     .where(or(eq(B.userId, user.id), sql`exists(select 1 from "krama_member" m where m."boardId" = ${bid} and m."key" = ${key})`))
     .orderBy(desc(B.starred), desc(B.updatedAt));
+  // member counts without the creator's own row (where their roles live)
+  const memberRows = rows.length ? await db.select({ boardId: M.boardId, key: M.key }).from(M).where(inArray(M.boardId, rows.map((r) => r.id))) : [];
   return rows.map((r) => ({
     id: r.id,
     title: r.title,
@@ -61,7 +64,7 @@ export async function listBoards(user: SessionUser) {
     lists: Number(r.lists),
     cards: Number(r.cards),
     open: Number(r.open),
-    members: Number(r.members),
+    members: memberRows.filter((m) => m.boardId === r.id && m.key !== labsKey(r.ownerEmail)).length,
     updatedAt: r.updatedAt.toISOString(),
   }));
 }
@@ -133,7 +136,9 @@ export async function loadBoard(user: SessionUser, boardId: string): Promise<Boa
   }
 
   const owner = [...accounts.values()].find((u) => u.id === board.userId);
-  const kmembers: KMember[] = members.map((m) => {
+  const ownerKey = owner ? labsKey(owner.email) : null;
+  const ownerRow = members.find((m) => m.key === ownerKey);
+  const kmembers: KMember[] = members.filter((m) => m.key !== ownerKey).map((m) => {
     const a = accounts.get(m.key);
     return { id: m.id, email: m.email, name: m.name, access: m.access === 'full' ? 'full' : 'tick', roleIds: m.roleIds ?? [], account: a ? { id: a.id, name: a.name, image: a.image } : null };
   });
@@ -163,7 +168,7 @@ export async function loadBoard(user: SessionUser, boardId: string): Promise<Boa
     comments: byCard,
     roles: roles.map((r) => ({ ...r, color: r.color as LabelColor })),
     members: kmembers,
-    owner: { id: board.userId, name: owner?.name ?? 'Owner', email: owner?.email ?? '', image: owner?.image ?? null },
+    owner: { id: board.userId, name: owner?.name ?? 'Owner', email: owner?.email ?? '', image: owner?.image ?? null, roleIds: ownerRow?.roleIds ?? [] },
     people,
     revisions: revisions.map((r) => ({ id: r.id, cardId: r.cardId, byId: r.byUserId, targetId: r.targetUserId, reason: r.reason, createdAt: r.createdAt.toISOString(), resolvedAt: r.resolvedAt ? r.resolvedAt.toISOString() : null })),
     activity: activity.map((a) => ({ id: a.id, action: a.action, cardId: a.cardId, createdAt: a.createdAt.toISOString(), user: a.name ? { name: a.name, image: a.image } : null })),
@@ -276,7 +281,9 @@ export async function adminData() {
 
   // people = everyone invited anywhere, grouped by email
   const people = new Map<string, { key: string; email: string; name: string; account: { id: string; name: string; image: string | null } | null; boards: { memberId: string; boardId: string; boardTitle: string; access: Access; roles: { code: string; color: LabelColor }[] }[] }>();
-  for (const m of members) {
+  const ownerKeyOf = new Map(boards.map((b) => [b.id, labsKey(b.ownerEmail)]));
+  const invited = members.filter((m) => ownerKeyOf.get(m.boardId) !== m.key);
+  for (const m of invited) {
     const a = accounts.get(m.key);
     const p = people.get(m.key) ?? { key: m.key, email: m.email, name: m.name, account: a ? { id: a.id, name: a.name, image: a.image } : null, boards: [] };
     if (!p.name && m.name) p.name = m.name;
@@ -301,7 +308,7 @@ export async function adminData() {
       lists: Number(b.lists),
       cards: Number(b.cards),
       done: Number(b.done),
-      members: members.filter((m) => m.boardId === b.id).length,
+      members: invited.filter((m) => m.boardId === b.id).length,
       createdAt: b.createdAt.toISOString(),
       updatedAt: b.updatedAt.toISOString(),
     })),

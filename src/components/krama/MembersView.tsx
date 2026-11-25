@@ -68,6 +68,7 @@ export function MembersView({ data, api }: { data: BoardData; api: BoardApi }) {
                 <p className="flex items-center gap-2 font-medium">{owner.name} {owner.id === data.me.id && <span className="text-xs text-mute">(you)</span>}</p>
                 <p className="truncate text-sm text-mute">{owner.email}</p>
               </div>
+              <OwnerRoles data={data} api={api} manage={manage} />
               <span className="rounded-full bg-ember/15 px-3 py-1 text-xs text-ember">Owner · full access, can tick every card</span>
             </li>
             {members.map((m) => (
@@ -79,6 +80,21 @@ export function MembersView({ data, api }: { data: BoardData; api: BoardApi }) {
           {manage && <div className="mt-5"><AddMembers boardId={data.board.id} boardTitle={data.board.title} roles={roles} members={members} ownerEmail={owner.email} api={api} /></div>}
         </section>
       </div>
+    </div>
+  );
+}
+
+/** The creator's roles: they only appear on the Progress scoreboard if they hold at least one. */
+export function OwnerRoles({ data, api, manage }: { data: BoardData; api: BoardApi; manage: boolean }) {
+  const { owner, roles } = data;
+  if (!manage) {
+    const mine = owner.roleIds.map((id) => roles.find((r) => r.id === id)).filter(Boolean) as KRole[];
+    return mine.length ? <div className="flex flex-wrap gap-1">{mine.map((r) => <RoleBadge key={r.id} role={r} />)}</div> : null;
+  }
+  return (
+    <div className="min-w-0">
+      <RoleTicks roles={roles} value={owner.roleIds} name={owner.name} onChange={(ids) => api.setOwnerRoles(ids)} />
+      {owner.roleIds.length === 0 && <p className="mt-1 text-[0.7rem] text-mute">No role: not scored on Progress.</p>}
     </div>
   );
 }

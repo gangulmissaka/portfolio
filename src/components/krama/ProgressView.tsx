@@ -3,7 +3,7 @@
 import { useId, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { Avatar } from '@/components/auth/AccountMenu';
 import type { BoardData } from '@/lib/krama/model';
-import { CHEERS, GLOOMS, HINTS, RUNNER_UP, SCORING, pickLine, pointsRace, scoreBoard, team, type PersonScore } from '@/lib/krama/score';
+import { CHEERS, GLOOMS, HINTS, RUNNER_UP, SCORING, pickLine, pointsRace, scoreBoard, team, unscored, type PersonScore } from '@/lib/krama/score';
 import { formatShort } from '@/lib/krama/time';
 import { RoleBadge } from './team';
 import { Icon } from './ui';
@@ -98,7 +98,12 @@ function Progress({ data, now }: { data: BoardData; now: number }) {
               <ScoreRow key={s.id} p={s} rank={i} color={colorOf(s.id)} maxAbs={maxAbs} gloomy={lowest?.id === s.id} me={s.id === data.me.id} />
             ))}
           </ol>
-          {scores.length <= 1 && <p className="mt-4 text-sm text-mute">Add teammates in Members &amp; Roles to start a competition. People appear here once they have signed in.</p>}
+          {scores.length === 0 && <p className="mt-2 text-sm text-mute">No one is scored yet. Only people with a role are on the scoreboard: give roles in Members &amp; Roles.</p>}
+          {unscored(data).length > 0 && (
+            <p className="mt-4 text-xs text-mute">
+              Not scored (no role): {unscored(data).map((p) => p.name).join(', ')}.
+            </p>
+          )}
         </section>
 
         {/* points race */}
@@ -124,7 +129,7 @@ function ScoringHelp() {
         <Icon name="flag" className="size-3.5" /> How scoring works
       </summary>
       <div className="k-pop absolute right-0 top-11 z-20 w-80 rounded-2xl border border-line-2 bg-ink-2/95 p-4 text-sm shadow-2xl shadow-black/60 backdrop-blur-xl">
-        <p className="text-xs text-mute">Points go to whoever ticks a card done. Deadlines are Sri Lanka time; a date without a time means 23:59.</p>
+        <p className="text-xs text-mute">Only people with at least one role are scored. Points go to whoever ticks a card done. Deadlines are Sri Lanka time; a date without a time means 23:59.</p>
         <dl className="mt-3 space-y-1.5">
           {[
             ['3 or more days early', `+${SCORING.early3d}`],

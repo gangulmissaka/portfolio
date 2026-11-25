@@ -482,6 +482,8 @@ export async function addMember(boardId: string, input: { id: string; email: str
       .safeParse({ ...input, email: input.email.trim().toLowerCase() });
     if (!p.success) return fail(p.error.issues[0]?.message ?? 'Check the member details.');
     const key = labsKey(p.data.email);
+    const [owner] = await db.select({ email: schema.user.email }).from(schema.user).where(eq(schema.user.id, acc.ownerId));
+    if (owner && labsKey(owner.email) === key) return fail('That is the creator of this project. Give them roles on their own row instead.');
     const [dupe] = await db.select({ email: M.email }).from(M).where(and(eq(M.boardId, acc.boardId), eq(M.key, key)));
     if (dupe) return fail(`${dupe.email} is already on this board.`);
     await db.insert(M).values({ id: p.data.id, boardId: acc.boardId, key, email: p.data.email, name: p.data.name, access: p.data.access, roleIds: await validRoleIds(acc.boardId, p.data.roleIds) });
@@ -506,6 +508,24 @@ export async function updateMember(boardId: string, memberId: string, patch: { n
       const codes = set.roleIds!.map((rid) => roles.find((r) => r.id === rid)?.code).filter(Boolean);
       if (set.roleIds!.join() !== (m.roleIds ?? []).join()) await log(acc.boardId, user.id, `set ${m.name || m.email}’s roles to ${codes.join(', ') || 'none'}`);
     }
+    return OK;
+  });
+}
+
+/** Roles for the project's creator (so they can be scored on Progress). Stored as a member row for their email. */
+export async function setOwnerRoles(boardId: string, roleIds: string[]): Promise<KramaResult> {
+  return guard(async () => {
+    const { user, acc } = await access(boardId, 'manage');
+    const ids = await validRoleIds(acc.boardId, Ids.parse(roleIds));
+    const [owner] = await db.select({ email: schema.user.email, name: schema.user.name }).from(schema.user).where(eq(schema.user.id, acc.ownerId));
+    if (!owner) return fail('Creator not found.');
+    const key = labsKey(owner.email);
+    await db
+      .insert(M)
+      .values({ id: crypto.randomUUID(), boardId: acc.boardId, key, email: owner.email.toLowerCase(), name: owner.name, access: 'full', roleIds: ids })
+      .onConflictDoUpdate({ target: [M.boardId, M.key], set: { roleIds: ids } });
+    const roles = await rolesOf(acc.boardId);
+    await log(acc.boardId, user.id, `set the creator’s roles to ${ids.map((rid) => roles.find((r) => r.id === rid)?.code).filter(Boolean).join(', ') || 'none'}`);
     return OK;
   });
 }

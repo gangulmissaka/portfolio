@@ -35,7 +35,8 @@ type Act =
   | { t: 'role/delete'; id: string }
   | { t: 'member/save'; member: KMember }
   | { t: 'member/delete'; id: string }
-  | { t: 'revision/add'; revision: KRevision };
+  | { t: 'revision/add'; revision: KRevision }
+  | { t: 'owner/roles'; roleIds: string[] };
 
 const without = (ids: string[], id: string) => ids.filter((x) => x !== id);
 
@@ -124,6 +125,8 @@ function reducer(s: BoardData, a: Act): BoardData {
       return { ...s, members: s.members.filter((m) => m.id !== a.id) };
     case 'revision/add':
       return { ...s, revisions: [...s.revisions, a.revision] };
+    case 'owner/roles':
+      return { ...s, owner: { ...s.owner, roleIds: a.roleIds } };
   }
 }
 
@@ -305,6 +308,11 @@ export function useBoard(initial: BoardData) {
         if (!m) return;
         dispatch({ t: 'member/save', member: { ...m, ...patch } });
         save(A.updateMember(boardId, id, patch));
+      },
+      /** The creator's own roles (only people with roles are scored on Progress). */
+      setOwnerRoles(roleIds: string[]) {
+        dispatch({ t: 'owner/roles', roleIds });
+        save(A.setOwnerRoles(boardId, roleIds));
       },
       removeMember(id: string) {
         dispatch({ t: 'member/delete', id });

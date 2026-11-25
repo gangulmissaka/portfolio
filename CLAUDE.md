@@ -88,7 +88,9 @@ building while the dev server runs is fine).
   required): it unticks, gets `revision*` columns (red `.k-revision` glow) and a `krama_revision` row; ticking it
   again clears it. The Progress tab (`ProgressView.tsx`) scores everyone from `lib/krama/score.ts` (pure; rules in
   its header comment: early tiers +5..+30, -1 per 10 min late capped -100, live overdue penalty for role holders,
-  -15 per revision). Scores are computed in the browser only (server renders a placeholder) to avoid hydration
+  -15 per revision). Only people holding at least one role are scored (`team()`; `unscored()` lists the rest),
+  the creator and Krama admin included; the creator's own roles are a member row for their own email
+  (`setOwnerRoles`), hidden from member lists and counts. Scores are computed in the browser only (server renders a placeholder) to avoid hydration
   mismatches from `Date.now()`. Chart colours: dark steps of the dataviz reference palette, validated on #14110e,
   assigned by team order (colour follows the person). E2E: `run-all.ps1` runs each suite on a fresh dev server. Never export helpers like `seedRoles`
   from the `'use server'` file: every export there is callable from the browser. Activity is logged to

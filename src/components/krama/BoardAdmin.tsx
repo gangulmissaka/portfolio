@@ -7,7 +7,7 @@ import { Avatar } from '@/components/auth/AccountMenu';
 import { RelativeTime } from '@/components/ui/RelativeTime';
 import { deleteBoard } from '@/lib/actions/krama';
 import { COLORS, dueState, type BoardData } from '@/lib/krama/model';
-import { MemberRow } from './MembersView';
+import { MemberRow, OwnerRoles } from './MembersView';
 import { AddMembers } from './people';
 import type { BoardApi } from './store';
 import { Icon, type IconName } from './ui';
@@ -61,7 +61,7 @@ export function BoardAdmin({ data, api, onOpenCard }: { data: BoardData; api: Bo
 
         <section className="rounded-[1.4rem] border border-line bg-ink/70 p-5 backdrop-blur-xl md:p-6" aria-labelledby="k-ba-members">
           <h2 id="k-ba-members" className="text-lg font-medium">Members · {members.length + 1}</h2>
-          <p className="mt-1 text-sm text-mute">Change anyone’s access or roles here. Roles decide who can tick which cards.</p>
+          <p className="mt-1 text-sm text-mute">Change anyone’s access or roles here. Roles decide who can tick which cards, and only people with a role are scored on Progress (you too).</p>
           <ul className="mt-4 divide-y divide-line overflow-hidden rounded-2xl border border-line">
             <li className="flex flex-wrap items-center gap-4 bg-ember/[0.04] p-4">
               <Avatar user={{ name: owner.name, image: owner.image }} size={40} />
@@ -69,6 +69,7 @@ export function BoardAdmin({ data, api, onOpenCard }: { data: BoardData; api: Bo
                 <p className="font-medium">{owner.name} {owner.id === data.me.id && <span className="text-xs text-mute">(you)</span>}</p>
                 <p className="truncate text-sm text-mute">{owner.email}</p>
               </div>
+              <OwnerRoles data={data} api={api} manage />
               <span className="rounded-full bg-ember/15 px-3 py-1 text-xs text-ember">Creator · full access</span>
             </li>
             {members.map((m) => (

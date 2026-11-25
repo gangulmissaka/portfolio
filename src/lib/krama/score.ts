@@ -15,6 +15,8 @@ import { addDays, todaySL } from './time';
  * -100), live, until it is done. Cards for ALL or with no role have no single owner, so they carry no such penalty.
  * Sent back for revision: -15 for the person whose work it was.
  * Deadlines are Sri Lanka time; a due date without a time means 23:59 that day.
+ * Only people holding at least one role on the board are scored (the creator and the Krama admin included: no role,
+ * no score). Their ticks still count as done; they just earn nothing.
  */
 export const SCORING = {
   noDate: 5,
@@ -64,15 +66,24 @@ export function completionPoints(doneAt: number, dueDate: string | null, dueTime
   return { points: SCORING.onTime, kind: 'onTime', marginMs: margin };
 }
 
-/** The team: the board's creator plus every member who has signed in (people are scored by account). */
-export function team(data: Pick<BoardData, 'owner' | 'members' | 'roles'>) {
-  const out = [{ id: data.owner.id, name: data.owner.name, image: data.owner.image, roleIds: [] as string[], isOwner: true }];
+type TeamPerson = { id: string; name: string; image: string | null; roleIds: string[]; isOwner: boolean };
+
+/** Everyone on the board who could be scored: the creator plus members who have signed in (scored by account). */
+function everyone(data: Pick<BoardData, 'owner' | 'members' | 'roles'>): TeamPerson[] {
+  const out: TeamPerson[] = [{ id: data.owner.id, name: data.owner.name, image: data.owner.image, roleIds: data.owner.roleIds ?? [], isOwner: true }];
   for (const m of data.members) {
     if (!m.account || out.some((p) => p.id === m.account!.id)) continue;
     out.push({ id: m.account.id, name: m.name || m.account.name, image: m.account.image, roleIds: m.roleIds, isOwner: false });
   }
-  return out;
+  const valid = new Set(data.roles.map((r) => r.id));
+  return out.map((p) => ({ ...p, roleIds: p.roleIds.filter((id) => valid.has(id)) }));
 }
+
+/** The scored team: only people holding at least one role. */
+export const team = (data: Pick<BoardData, 'owner' | 'members' | 'roles'>) => everyone(data).filter((p) => p.roleIds.length > 0);
+
+/** People on the board who are not scored because they hold no role. */
+export const unscored = (data: Pick<BoardData, 'owner' | 'members' | 'roles'>) => everyone(data).filter((p) => p.roleIds.length === 0);
 
 export function scoreBoard(data: Pick<BoardData, 'cards' | 'roles' | 'members' | 'owner' | 'revisions'>, now = Date.now()) {
   const people = team(data);

@@ -58,7 +58,8 @@ export type BoardData = {
   comments: Record<string, KComment[]>;
   roles: KRole[];
   members: KMember[];
-  owner: { id: string; name: string; email: string; image: string | null };
+  /** The creator. `roleIds`: roles they gave themselves (stored as a member row for their own email). */
+  owner: { id: string; name: string; email: string; image: string | null; roleIds: string[] };
   /** Names for doneBy ids (people who ticked cards). */
   people: Record<string, { name: string; image: string | null }>;
   /** Every revision request on this board (for the Progress scoreboard). */

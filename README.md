@@ -128,7 +128,8 @@ activity log.
 **Revision and Progress.** Anyone with full access can press the red **Revision** button on a ticked card, give a
 reason, and send it back: it unticks and glows red until it is ticked again. The **Progress** tab ranks the team:
 early finishes earn more points, late finishes lose 1 point per 10 minutes, overdue cards cost their role holders
-points, and each revision costs 15. Top scorers get a podium, confetti and a cheer; the lowest scorer gets a gloomy
+points, and each revision costs 15. Only people with at least one role are scored (the creator can give
+themselves roles on their own row). Top scorers get a podium, confetti and a cheer; the lowest scorer gets a gloomy
 line and a hint on hover. Rules are in `src/lib/krama/score.ts` and on the page (How scoring works).
 
 Holiday data is in `src/lib/krama/holidays.ts`: official gazetted lists for 2026 and 2027, estimates for 2025 and
