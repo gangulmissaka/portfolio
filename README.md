@@ -15,7 +15,7 @@ Better Auth · Drizzle ORM · Postgres (Neon) · Resend
 | **https://gangulmissaka.github.io/valley/** | The previous 3D portfolio (repo `gangulmissaka.github.io`), linked from here |
 
 Status (2026-11-24): live and working, including Google sign-in, the members area, guestbook, reactions,
-contact form and the admin panel. The Work page lists 22 projects (university and personal work).
+contact form and the admin panel. The Work page lists 21 projects (university and personal work).
 
 ---
 

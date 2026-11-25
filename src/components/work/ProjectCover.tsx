@@ -144,30 +144,6 @@ export function ProjectCover({ slug, priority = false, sizes = '(min-width: 768p
         </div>
       );
 
-    case 'medfinder':
-      return (
-        <div className={wrap} style={{ ...base, background: 'radial-gradient(100% 90% at 20% 10%, #1fc7a0 0%, #0b5c4b 45%, #04140f 100%)' }}>
-          {/* map */}
-          <div className="absolute inset-0 opacity-25" style={{ backgroundImage: 'linear-gradient(rgb(255 255 255 / .12) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / .12) 1px, transparent 1px)', backgroundSize: '7cqw 7cqw' }} />
-          <svg viewBox="0 0 100 62" className="absolute inset-0 h-full w-full" preserveAspectRatio="none" aria-hidden>
-            <path d="M0 40 C 20 30, 35 48, 55 36 S 85 20, 100 28" stroke="#9ff5dc" strokeOpacity=".35" strokeWidth=".6" fill="none" />
-            <path d="M30 0 C 34 20, 26 40, 38 62" stroke="#9ff5dc" strokeOpacity=".25" strokeWidth=".5" fill="none" />
-          </svg>
-          {[[62, 30, '0.8 km', '3 of 4'], [82, 58, '1.4 km', '4 of 4'], [55, 70, '2.1 km', '2 of 4']].map(([x, y, d, s]) => (
-            <div key={d} className="absolute -translate-x-1/2 -translate-y-full" style={{ left: `${x}%`, top: `${y}%` }}>
-              <div className={`mb-[0.6cqw] whitespace-nowrap rounded-[0.8cqw] bg-white px-[1.2cqw] py-[0.6cqw] ${mono} text-[#0b5c4b] shadow-lg`}>{d} · {s} in stock</div>
-              <div className="mx-auto size-[2.4cqw] rounded-full border-[0.5cqw] border-white bg-[#ff5a4f] shadow-[0_0_2cqw_#ff5a4f]" />
-            </div>
-          ))}
-          {/* prescription */}
-          <div className="absolute left-[7cqw] top-1/2 w-[30cqw] -translate-y-1/2 rotate-[-6deg] rounded-[0.8cqw] bg-[#fbfaf6] p-[2.4cqw] shadow-[0_3cqw_6cqw_rgb(0_0_0/0.5)]">
-            <p className="font-serif text-[6cqw] italic leading-none text-[#0b5c4b]">Rx</p>
-            {[80, 64, 72, 50].map((w, i) => <div key={i} className="mt-[1.6cqw] h-[0.5cqw] rounded-full bg-[#30443e]/60" style={{ width: `${w}%`, transform: `rotate(${i % 2 ? 1 : -1.5}deg)` }} />)}
-            <div className="absolute inset-x-0 top-[45%] h-[0.4cqw] bg-[#1fc7a0] shadow-[0_0_2cqw_#1fc7a0]" />
-          </div>
-        </div>
-      );
-
     case 'dads-assistant': {
       const tiles = [['❤️', 'Health', '#ff8a7a'], ['🧾', 'Bills', '#ffd27a'], ['💰', 'Expenses', '#9be3a4'], ['🚗', 'Vehicle', '#8ec5ff'], ['🗂️', 'Documents', '#d7b3ff'], ['🆘', 'Emergency', '#ff6b6b']] as const;
       return (

@@ -120,34 +120,6 @@ export const PROJECTS: Project[] = [
     featured: true,
   },
   {
-    slug: 'medfinder',
-    title: 'MedFinder LK',
-    kicker: 'Upload a prescription, find the pharmacy that has it',
-    summary:
-      'A web app where customers upload a prescription, the medicines are read from the photo automatically, and nearby pharmacies reply with what they have in stock.',
-    category: 'Web',
-    year: '2026',
-    role: 'Solo developer',
-    platform: 'Node.js + Leaflet',
-    status: 'Working prototype',
-    tint: '#14a37f',
-    overview: [
-      'Finding a medicine often means calling pharmacy after pharmacy. MedFinder LK turns that around: a customer uploads a photo of the prescription, the app reads the medicines from it, and nearby pharmacies mark which ones they have.',
-      'There are three roles. Customers post requests and see the replies on a map, pharmacies answer the requests around them, and admins approve new pharmacies and manage users. It runs on a completely free stack with no paid APIs.',
-    ],
-    challenge:
-      'Reading handwriting. Doctors’ prescriptions defeat ordinary OCR, so the app first asks a local vision model to read the image, falls back to Tesseract when that is not available, and then cleans the result against a list of known medicine names.',
-    highlights: [
-      { title: 'AI prescription reading', body: 'A local vision model through Ollama reads the prescription, with Tesseract OCR as the fallback. Customers can correct the list or rescan.' },
-      { title: 'Forgiving medicine matching', body: 'Fuzzy matching against a medicine list turns small reading mistakes into the right medicine name.' },
-      { title: 'Pharmacies near you', body: 'Haversine distance finds pharmacies around the customer, shown on an OpenStreetMap map with Leaflet.' },
-      { title: 'Role-based access', body: 'JWT sign-in with hashed passwords and three roles. New pharmacies only go live after an admin approves them.' },
-    ],
-    stack: ['Node.js', 'Express', 'SQLite', 'Ollama vision model', 'Tesseract.js', 'Leaflet + OpenStreetMap', 'JWT'],
-    links: [],
-    featured: false,
-  },
-  {
     slug: 'manimdesk',
     title: 'ManimDesk',
     kicker: 'Maths animations without the command line',

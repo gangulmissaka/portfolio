@@ -21,7 +21,7 @@ building while the dev server runs is fine).
 - **Hero is final**: the user wants it exactly as in `../issue1.png` (huge "Gangul" / "Missaka" over the portrait,
   scroll cue on the right). A viewport-height resize was reverted at their request; don't change hero sizing or
   spacing unless asked.
-- **Projects (22 live)**: entries in `PROJECTS` (site.ts; order = list order and "Next project", `featured` = home
+- **Projects (21 live)**: entries in `PROJECTS` (site.ts; order = list order and "Next project", `featured` = home
   page), covers built in code in `components/work/ProjectCover.tsx` (one `case` per slug, shared `Window` helper and
   `mono` class), real screenshots in `components/work/gallery.ts`, filter chips from `CATEGORIES`.
   University work is described, never published (no briefs, marking guides, reports, unit code or data). The user was
