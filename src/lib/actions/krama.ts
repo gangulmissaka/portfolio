@@ -16,8 +16,8 @@ import type { SessionUser } from '@/lib/auth';
  * Every action: Labs access → the caller's rights on the board (boardAccess) → validated input. All writes are
  * filtered by boardId, so ids from another board can never be touched. Hiding buttons in the UI is not the security.
  *
- * Rights: "view" (any member), "edit" (owner, Krama admin, full-access members), "own" (owner or Krama admin),
- * "manage" (Krama admin only: members and roles). Ticking a card done follows canTickCard().
+ * Rights: "view" (any member), "edit" (owner, Krama admin, full-access members), "own" and "manage" (owner or
+ * Krama admin; "manage" covers members and roles). Ticking a card done follows canTickCard().
  */
 
 const { kramaBoard: B, kramaList: L, kramaCard: C, kramaLabel: LB, kramaComment: CM, kramaRole: R, kramaMember: M, kramaActivity: ACT } = schema;
@@ -46,7 +46,7 @@ const DENIED: Record<Need, string> = {
   view: 'Board not found.',
   edit: 'You have read and tick access on this board, so you can’t change it.',
   own: 'Only the board owner can do that.',
-  manage: 'Only the Krama admin can change members and roles.',
+  manage: 'Only the project owner or the Krama admin can change members and roles.',
 };
 
 class Denied extends Error {}
@@ -402,7 +402,47 @@ export async function deleteRole(boardId: string, roleId: string): Promise<Krama
   });
 }
 
-// ── Members (Krama admin only) ──
+// ── People search for "Add members" (owner or Krama admin) ──
+export type PersonHit = { id: string; name: string; email: string; image: string | null; onBoard: boolean };
+export type PeopleResult = { ok: true; people: PersonHit[] } | { ok: false; error: string };
+
+/**
+ * Accounts the caller can add to this board, matching `query` (name or email).
+ * The Krama admin searches everyone who has signed in to the site. Other owners only see people who already use
+ * Labs or Krama (approved for Labs, on a board, or owning one), so they can't browse the site's other accounts.
+ */
+export async function searchPeople(boardId: string, query: string): Promise<PeopleResult> {
+  try {
+    const { user, acc } = await access(boardId, 'manage');
+    const q = z.string().trim().max(80).parse(query).toLowerCase();
+    const [users, banned, members, labs, owners, board] = await Promise.all([
+      db.select({ id: schema.user.id, name: schema.user.name, email: schema.user.email, image: schema.user.image }).from(schema.user).limit(5000),
+      db.select({ id: schema.userBan.userId }).from(schema.userBan),
+      db.select({ key: M.key, boardId: M.boardId }).from(M),
+      db.select({ key: schema.labsAccess.key }).from(schema.labsAccess),
+      db.select({ userId: B.userId }).from(B),
+      db.select({ userId: B.userId }).from(B).where(eq(B.id, acc.boardId)),
+    ]);
+    const bannedIds = new Set(banned.map((b) => b.id));
+    const onBoard = new Set(members.filter((m) => m.boardId === acc.boardId).map((m) => m.key));
+    const known = new Set([...members.map((m) => m.key), ...labs.map((l) => l.key)]);
+    const ownerIds = new Set(owners.map((o) => o.userId));
+    const people = users
+      .filter((u) => !bannedIds.has(u.id) && u.id !== user.id && u.id !== board[0]?.userId)
+      .filter((u) => user.isAdmin || known.has(labsKey(u.email)) || ownerIds.has(u.id))
+      .filter((u) => !q || u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
+      .map((u) => ({ id: u.id, name: u.name, email: u.email, image: u.image, onBoard: onBoard.has(labsKey(u.email)) }))
+      .sort((a, b) => Number(a.onBoard) - Number(b.onBoard) || a.name.localeCompare(b.name))
+      .slice(0, 25);
+    return { ok: true, people };
+  } catch (e) {
+    if (e instanceof Denied) return { ok: false, error: e.message };
+    if (e instanceof z.ZodError) return { ok: false, error: 'Search is too long.' };
+    throw e;
+  }
+}
+
+// ── Members (owner or Krama admin) ──
 async function validRoleIds(boardId: string, ids: string[]) {
   const roles = await rolesOf(boardId);
   return ids.filter((id) => roles.some((r) => r.id === id));

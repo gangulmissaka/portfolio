@@ -74,10 +74,16 @@ building while the dev server runs is fine).
   access `full` (edit) or `tick` (read + tick), and per-board roles (`krama_role`, default PM/BA/FE/BE/QA/ALL).
   Cards have `roleId`; `canTickCard()` in `lib/krama/model.ts` is THE tick rule, used by both server and UI:
   owner/Krama admin tick anything, no-role cards need full access, ALL cards anyone, else members holding that
-  role (a member with ALL counts as every role). Only the site admin (`canManage`) edits members and roles.
+  role (a member with ALL counts as every role). The board owner and the site admin (`canManage`) edit members
+  and roles; members never do.
   Rights come from `boardAccess()` in `lib/krama/access.ts`; every action in `lib/actions/krama.ts` goes through
   `access(boardId, 'view'|'edit'|'own'|'manage')`. Ticking uses `setCardDone`/`setChecklistItem` (not updateCard).
-  Being a member of any board also grants Labs access (`hasLabsAccess`). Never export helpers like `seedRoles`
+  Being a member of any board, or owning one, also grants Labs access (`isKramaUser` in `hasLabsAccess`), so
+  invited people can start their own projects and keep them. Invite links are `/signin?next=/labs/krama/b/<id>`
+  (`components/krama/invite.tsx`); sign-in redirects signed-in visitors to a safe same-site `next`.
+  Each board has an **Admin** tab for its creator and the site admin (`BoardAdmin.tsx`): Add members uses the
+  people picker (`people.tsx` → `searchPeople` action). Privacy rule in `searchPeople`: the site admin may search
+  every account; other owners only accounts already in Labs/Krama; anyone else is added by typing a full email. Never export helpers like `seedRoles`
   from the `'use server'` file: every export there is callable from the browser. Activity is logged to
   `krama_activity` for the admin panel (`/labs/krama/admin`, admin only). Boards refresh in the background every
   20 s when idle (BoardApp). Multi-user E2E: four dev accounts; Better Auth rate-limits sign-ups (retry on 429);

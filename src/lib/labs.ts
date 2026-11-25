@@ -5,7 +5,7 @@ import { cache } from 'react';
 import { getCurrentUser, type SessionUser } from './auth';
 import { db, dbReady, schema } from './db';
 import { labsKey } from './labs-key';
-import { isKramaMember } from './krama/access';
+import { isKramaUser } from './krama/access';
 
 export { labsKey };
 
@@ -26,8 +26,8 @@ export const hasLabsAccess = cache(async (user: SessionUser | null): Promise<boo
   if (!user) return false;
   if (user.isAdmin) return true;
   if (user.banned) return false;
-  // approved for Labs, or invited to a Krama board (which opens Labs → Krama for them)
-  return (await isApproved(user.email)) || (await isKramaMember(user.email));
+  // approved for Labs, or a Krama user (invited to a project, or owner of one), which opens Labs → Krama
+  return (await isApproved(user.email)) || (await isKramaUser(user.email, user.id));
 });
 
 /** Current user if they may use Labs, else null. Request-time: call inside <Suspense>. */

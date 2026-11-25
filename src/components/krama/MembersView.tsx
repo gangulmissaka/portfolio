@@ -2,14 +2,15 @@
 
 import { useState } from 'react';
 import { Avatar } from '@/components/auth/AccountMenu';
-import { labsKey } from '@/lib/labs-key';
 import { ACCESS, COLOR_IDS, COLORS, LIMITS, uid, type Access, type BoardData, type KMember, type KRole, type LabelColor } from '@/lib/krama/model';
 import type { BoardApi } from './store';
+import { CopyInvite } from './invite';
+import { AddMembers } from './people';
 import { RoleBadge } from './team';
 import { Icon, InlineEdit, kfield } from './ui';
 
 /**
- * Members & Roles. Everyone on the board can see who holds which role; only the Krama admin can change it.
+ * Members & Roles. Everyone on the board can see who holds which role; the owner and the Krama admin change it.
  */
 export function MembersView({ data, api }: { data: BoardData; api: BoardApi }) {
   const { roles, members, perm, owner, cards } = data;
@@ -21,7 +22,7 @@ export function MembersView({ data, api }: { data: BoardData; api: BoardApi }) {
       <div className="mx-auto max-w-6xl space-y-6">
         {!manage && (
           <p className="flex items-center gap-2 rounded-2xl border border-line bg-ink/60 px-4 py-3 text-sm text-bone-2 backdrop-blur">
-            <Icon name="lock" className="size-4 shrink-0 text-mute" /> Only the Krama admin can change members and roles. Your access: <b className="font-medium text-bone">{perm.access === 'owner' ? 'Owner' : ACCESS[perm.access].name}</b>
+            <Icon name="lock" className="size-4 shrink-0 text-mute" /> Only the project owner can change members and roles. Your access: <b className="font-medium text-bone">{perm.access === 'owner' ? 'Owner' : ACCESS[perm.access].name}</b>
             {perm.roleIds.length > 0 && <> · your roles: {perm.roleIds.map((id) => roles.find((r) => r.id === id)).filter(Boolean).map((r) => <RoleBadge key={r!.id} role={r!} />)}</>}
           </p>
         )}
@@ -70,12 +71,12 @@ export function MembersView({ data, api }: { data: BoardData; api: BoardApi }) {
               <span className="rounded-full bg-ember/15 px-3 py-1 text-xs text-ember">Owner · full access, can tick every card</span>
             </li>
             {members.map((m) => (
-              <MemberRow key={m.id} member={m} roles={roles} manage={manage} api={api} isMe={m.account?.id === data.me.id} />
+              <MemberRow key={m.id} member={m} roles={roles} manage={manage} api={api} isMe={m.account?.id === data.me.id} board={data.board} />
             ))}
             {members.length === 0 && <li className="p-6 text-center text-sm text-mute">{manage ? 'No one else yet. Add your team below.' : 'No other members.'}</li>}
           </ul>
 
-          {manage && <AddMember roles={roles} members={members} ownerEmail={owner.email} api={api} />}
+          {manage && <div className="mt-5"><AddMembers boardId={data.board.id} boardTitle={data.board.title} roles={roles} members={members} ownerEmail={owner.email} api={api} /></div>}
         </section>
       </div>
     </div>
@@ -165,7 +166,7 @@ function NewRole({ api, existing }: { api: BoardApi; existing: KRole[] }) {
   );
 }
 
-function AccessSwitch({ value, onChange, disabled = false, name }: { value: Access; onChange: (a: Access) => void; disabled?: boolean; name: string }) {
+export function AccessSwitch({ value, onChange, disabled = false, name }: { value: Access; onChange: (a: Access) => void; disabled?: boolean; name: string }) {
   return (
     <div className="flex rounded-full border border-line-2 bg-ink p-0.5" role="radiogroup" aria-label={`Access for ${name}`}>
       {(['full', 'tick'] as Access[]).map((a) => (
@@ -186,7 +187,7 @@ function AccessSwitch({ value, onChange, disabled = false, name }: { value: Acce
   );
 }
 
-function RoleTicks({ roles, value, onChange, disabled = false, name }: { roles: KRole[]; value: string[]; onChange: (ids: string[]) => void; disabled?: boolean; name: string }) {
+export function RoleTicks({ roles, value, onChange, disabled = false, name }: { roles: KRole[]; value: string[]; onChange: (ids: string[]) => void; disabled?: boolean; name: string }) {
   return (
     <div className="flex flex-wrap gap-1.5" role="group" aria-label={`Roles for ${name}`}>
       {roles.map((r) => {
@@ -212,7 +213,7 @@ function RoleTicks({ roles, value, onChange, disabled = false, name }: { roles: 
   );
 }
 
-function MemberRow({ member, roles, manage, api, isMe }: { member: KMember; roles: KRole[]; manage: boolean; api: BoardApi; isMe: boolean }) {
+export function MemberRow({ member, roles, manage, api, isMe, board }: { member: KMember; roles: KRole[]; manage: boolean; api: BoardApi; isMe: boolean; board: BoardData['board'] }) {
   const display = member.name || member.account?.name || member.email.split('@')[0];
   return (
     <li className="grid gap-3 p-4 lg:grid-cols-[minmax(0,1.3fr)_auto_minmax(0,1.6fr)_auto] lg:items-center">
@@ -235,62 +236,15 @@ function MemberRow({ member, roles, manage, api, isMe }: { member: KMember; role
       <AccessSwitch value={member.access} disabled={!manage} name={display} onChange={(a) => api.updateMember(member.id, { access: a })} />
       <RoleTicks roles={roles} value={member.roleIds} disabled={!manage} name={display} onChange={(ids) => api.updateMember(member.id, { roleIds: ids })} />
       {manage ? (
-        <button type="button" onClick={() => confirm(`Remove ${display} from this board? They lose access to it straight away.`) && api.removeMember(member.id)} className="h-8 justify-self-start rounded-full border border-line-2 px-3 text-xs text-bone-2 hover:border-red-400 hover:text-red-300 lg:justify-self-end">
-          Remove
-        </button>
+        <div className="flex gap-2 justify-self-start lg:justify-self-end">
+          {!member.account && <CopyInvite boardId={board.id} boardTitle={board.title} email={member.email} compact />}
+          <button type="button" onClick={() => confirm(`Remove ${display} from this board? They lose access to it straight away.`) && api.removeMember(member.id)} className="h-8 rounded-full border border-line-2 px-3 text-xs text-bone-2 hover:border-red-400 hover:text-red-300">
+            Remove
+          </button>
+        </div>
       ) : (
         <span />
       )}
     </li>
-  );
-}
-
-function AddMember({ roles, members, ownerEmail, api }: { roles: KRole[]; members: KMember[]; ownerEmail: string; api: BoardApi }) {
-  const [email, setEmail] = useState('');
-  const [name, setName] = useState('');
-  const [access, setAccess] = useState<Access>('tick');
-  const [roleIds, setRoleIds] = useState<string[]>([]);
-  const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
-
-  const submit = () => {
-    const e = email.trim().toLowerCase();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return setNote({ ok: false, text: 'That doesn’t look like an email address.' });
-    if (labsKey(e) === labsKey(ownerEmail)) return setNote({ ok: false, text: 'That is the board owner; they already have full access.' });
-    if (members.some((m) => labsKey(m.email) === labsKey(e))) return setNote({ ok: false, text: `${e} is already on this board.` });
-    api.addMember({ email: e, name, access, roleIds });
-    setNote({ ok: true, text: `Added ${name.trim() || e}. They can sign in with that Google account to open the board.` });
-    setEmail('');
-    setName('');
-    setRoleIds([]);
-  };
-
-  return (
-    <form onSubmit={(ev) => { ev.preventDefault(); submit(); }} className="mt-5 rounded-2xl border border-dashed border-line-2 p-4">
-      <p className="font-medium">Add a member</p>
-      <div className="mt-3 grid gap-3 md:grid-cols-2">
-        <div>
-          <label htmlFor="k-m-email" className="text-xs text-mute">Google email</label>
-          <input id="k-m-email" type="email" required value={email} maxLength={160} onChange={(e) => setEmail(e.target.value)} placeholder="name@gmail.com" autoComplete="off" spellCheck={false} className={`${kfield} mt-1`} />
-        </div>
-        <div>
-          <label htmlFor="k-m-name" className="text-xs text-mute">Name (optional)</label>
-          <input id="k-m-name" value={name} maxLength={LIMITS.memberName} onChange={(e) => setName(e.target.value)} placeholder="e.g. Sachini" className={`${kfield} mt-1`} />
-        </div>
-      </div>
-      <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-3">
-        <div>
-          <p className="mb-1.5 text-xs text-mute">Access</p>
-          <AccessSwitch value={access} onChange={setAccess} name="the new member" />
-        </div>
-        <div className="min-w-0">
-          <p className="mb-1.5 text-xs text-mute">Roles (tick all that apply)</p>
-          <RoleTicks roles={roles} value={roleIds} onChange={setRoleIds} name="the new member" />
-        </div>
-        <button type="submit" disabled={!email.trim()} className="ml-auto h-10 rounded-full bg-bone px-5 text-sm font-medium text-ink transition-colors hover:bg-ember disabled:opacity-40">
-          Add member
-        </button>
-      </div>
-      {note && <p role="status" className={`mt-3 text-sm ${note.ok ? 'text-bone-2' : 'text-red-300'}`}>{note.text}</p>}
-    </form>
   );
 }

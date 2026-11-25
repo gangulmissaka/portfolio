@@ -11,8 +11,8 @@ export type BoardAccess = Perm & { boardId: string; ownerId: string };
 
 /**
  * The caller's rights on a board, or null if they can't see it.
- * Owner and Krama admin (the site admin): everything. Members: by their access level and roles.
- * Only the Krama admin can manage members and roles.
+ * Owner and Krama admin (the site admin): everything, including members and roles.
+ * Members: by their access level and roles; they never manage members or roles.
  */
 export async function boardAccess(user: SessionUser, boardId: string): Promise<BoardAccess | null> {
   await dbReady;
@@ -22,18 +22,23 @@ export async function boardAccess(user: SessionUser, boardId: string): Promise<B
   const [m] = await db.select({ access: M.access, roleIds: M.roleIds }).from(M).where(and(eq(M.boardId, b.id), eq(M.key, labsKey(user.email))));
   const roleIds = m?.roleIds ?? [];
   if (isOwner || user.isAdmin) {
-    return { boardId: b.id, ownerId: b.userId, canEdit: true, canManage: user.isAdmin, isOwner, isAdmin: user.isAdmin, all: true, roleIds, access: 'owner' };
+    return { boardId: b.id, ownerId: b.userId, canEdit: true, canManage: true, isOwner, isAdmin: user.isAdmin, all: true, roleIds, access: 'owner' };
   }
   if (!m || user.banned) return null;
   const access = (m.access === 'full' ? 'full' : 'tick') as Access;
   return { boardId: b.id, ownerId: b.userId, canEdit: access === 'full', canManage: false, isOwner: false, isAdmin: false, all: false, roleIds, access };
 }
 
-/** Is this email on any Krama board? (That alone opens Labs → Krama for them.) */
-export async function isKramaMember(email: string) {
+/**
+ * Does this person use Krama: invited to any board, or owner of one? Either opens Labs → Krama for them, so people
+ * you invite can also start their own projects and keep them.
+ */
+export async function isKramaUser(email: string, userId: string) {
   await dbReady;
-  const [r] = await db.select({ n: sql<number>`1` }).from(M).where(eq(M.key, labsKey(email))).limit(1);
-  return !!r;
+  const [m] = await db.select({ n: sql<number>`1` }).from(M).where(eq(M.key, labsKey(email))).limit(1);
+  if (m) return true;
+  const [b] = await db.select({ n: sql<number>`1` }).from(B).where(eq(B.userId, userId)).limit(1);
+  return !!b;
 }
 
 /**

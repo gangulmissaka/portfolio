@@ -39,7 +39,7 @@ export type KMember = {
 };
 /**
  * What the current person may do on a board. `all` = owner or Krama admin: can tick any card.
- * `canManage` = only the Krama admin (site admin) edits members and roles.
+ * `canManage` = the board owner and the Krama admin (site admin) edit members and roles.
  */
 export type Perm = { canEdit: boolean; canManage: boolean; isOwner: boolean; isAdmin: boolean; all: boolean; roleIds: string[]; access: Access | 'owner' };
 export type KComment = { id: string; cardId: string; body: string; createdAt: string; authorId: string; author: { name: string; image: string | null } };
@@ -58,6 +58,8 @@ export type BoardData = {
   owner: { id: string; name: string; email: string; image: string | null };
   /** Names for doneBy ids (people who ticked cards). */
   people: Record<string, { name: string; image: string | null }>;
+  /** Latest activity on this board; only loaded for people who manage it (owner, Krama admin). */
+  activity: { id: string; action: string; cardId: string | null; createdAt: string; user: { name: string; image: string | null } | null }[];
   perm: Perm;
   me: { id: string; name: string; image: string | null };
 };

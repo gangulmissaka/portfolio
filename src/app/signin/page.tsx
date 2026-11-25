@@ -13,12 +13,12 @@ import { pageTransition } from '@/lib/transitions';
 
 export const metadata: Metadata = { title: 'Sign in', description: 'Sign in with Google to join the guestbook, react to projects and use member features.', alternates: { canonical: '/signin' } };
 
-export default function SignInPage() {
+export default function SignInPage({ searchParams }: PageProps<'/signin'>) {
   return (
     <ViewTransition {...pageTransition}>
       <section className="container-x grid min-h-[100svh] gap-12 pb-20 pt-[calc(var(--header-h)+4rem)] lg:grid-cols-12 lg:items-center">
         <Suspense fallback={null}>
-          <RedirectIfSignedIn />
+          <RedirectIfSignedIn searchParams={searchParams} />
         </Suspense>
         <div className="lg:col-span-6">
           <FadeUp onIntro className="eyebrow mb-6">Members</FadeUp>
@@ -66,8 +66,10 @@ export default function SignInPage() {
   );
 }
 
-async function RedirectIfSignedIn() {
+/** Already signed in: go where the link pointed (same-site paths only, e.g. a Krama invite), else the account page. */
+async function RedirectIfSignedIn({ searchParams }: { searchParams: PageProps<'/signin'>['searchParams'] }) {
   const user = await getCurrentUser();
-  if (user) redirect('/account');
-  return null;
+  if (!user) return null;
+  const next = (await searchParams).next;
+  redirect(typeof next === 'string' && next.startsWith('/') && !next.startsWith('//') && !next.startsWith('/\\') ? next : '/account');
 }

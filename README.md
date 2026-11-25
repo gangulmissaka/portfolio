@@ -114,10 +114,14 @@ with drag and drop, card details (description, labels, checklists, due date and 
 comments, archive), search and filters, and a month calendar in Sri Lanka time (GMT+5:30) that highlights Poya
 days, public and bank holidays, and mercantile holidays. Each person only sees their own boards.
 
-**Teams.** Each board has a **Members & Roles** tab. The Krama admin (`ADMIN_EMAILS`) adds people by Google email,
+**Teams.** Each board has an **Admin** tab for the person who created it (and the Krama admin): **Add members**
+searches people who have signed in with Google (search and select, several at once) or takes a typed email.
+Each board also has a **Members & Roles** tab. The board's owner (and the Krama admin, `ADMIN_EMAILS`, on
+every board) adds people by Google email,
 gives them **Full access** (edit everything) or **Read and tick** (see the board, tick their own cards), and ticks
 their roles (PM, BA, FE, BE, QA, ALL, or custom ones). Cards get a role; only people with that role can tick the
-card done (ALL = whole team). Invited people can open Labs → Krama with that Google account. The admin's
+card done (ALL = whole team). Invited people can open Labs → Krama with that Google account and can create
+projects of their own. **Copy invite** gives a message with a link that signs them in and opens the project. The admin's
 **Admin** tab (`/labs/krama/admin`) shows every board, everyone's access, work by role, overdue cards and an
 activity log.
 

@@ -135,6 +135,15 @@ export async function loadBoard(user: SessionUser, boardId: string): Promise<Boa
     const a = accounts.get(m.key);
     return { id: m.id, email: m.email, name: m.name, access: m.access === 'full' ? 'full' : 'tick', roleIds: m.roleIds ?? [], account: a ? { id: a.id, name: a.name, image: a.image } : null };
   });
+  const activity = acc.canManage
+    ? await db
+        .select({ id: ACT.id, action: ACT.action, cardId: ACT.cardId, createdAt: ACT.createdAt, name: U.name, image: U.image })
+        .from(ACT)
+        .leftJoin(U, eq(U.id, ACT.userId))
+        .where(eq(ACT.boardId, boardId))
+        .orderBy(desc(ACT.createdAt))
+        .limit(40)
+    : [];
   const people: BoardData['people'] = {};
   for (const id of new Set(cards.map((c) => c.doneBy).filter(Boolean) as string[])) {
     const a = [...accounts.values()].find((u) => u.id === id);
@@ -153,6 +162,7 @@ export async function loadBoard(user: SessionUser, boardId: string): Promise<Boa
     members: kmembers,
     owner: { id: board.userId, name: owner?.name ?? 'Owner', email: owner?.email ?? '', image: owner?.image ?? null },
     people,
+    activity: activity.map((a) => ({ id: a.id, action: a.action, cardId: a.cardId, createdAt: a.createdAt.toISOString(), user: a.name ? { name: a.name, image: a.image } : null })),
     perm: { canEdit: acc.canEdit, canManage: acc.canManage, isOwner: acc.isOwner, isAdmin: acc.isAdmin, all: acc.all, roleIds: acc.roleIds, access: acc.access },
     me: { id: user.id, name: user.name, image: user.image },
   };
@@ -257,7 +267,7 @@ export async function adminData() {
       .limit(50),
   ]);
 
-  const roleNames = await db.select({ id: R.id, code: R.code, color: R.color, boardId: R.boardId }).from(R);
+  const roleNames = await db.select({ id: R.id, code: R.code, name: R.name, color: R.color, boardId: R.boardId }).from(R).orderBy(asc(R.position));
   const boardTitle = new Map(boards.map((b) => [b.id, b.title]));
 
   // people = everyone invited anywhere, grouped by email
@@ -276,7 +286,11 @@ export async function adminData() {
     people.set(m.key, p);
   }
 
+  const rolesByBoard: Record<string, { id: string; code: string; name: string; color: LabelColor }[]> = {};
+  for (const r of roleNames) (rolesByBoard[r.boardId] ??= []).push({ id: r.id, code: r.code, name: r.name, color: r.color as LabelColor });
+
   return {
+    rolesByBoard,
     boards: boards.map((b) => ({
       ...b,
       theme: b.theme as ThemeId,

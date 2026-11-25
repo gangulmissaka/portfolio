@@ -190,7 +190,7 @@ export function CardModal({ cardId, data, api, onClose }: { cardId: string; data
                 onDelete={(id) => api.deleteComment(card.id, id)}
                 me={data.me}
               />
-              {!edit && <p className="mt-8 rounded-xl border border-line bg-ink/40 p-3 text-xs text-mute">You have read and tick access on this board. You can tick cards and checklist items for your roles; ask the Krama admin if you need to change anything else.</p>}
+              {!edit && <p className="mt-8 rounded-xl border border-line bg-ink/40 p-3 text-xs text-mute">You have read and tick access on this board. You can tick cards and checklist items for your roles; ask the project owner if you need to change anything else.</p>}
             </div>
 
             {/* ── sidebar (full access) ── */}

@@ -9,15 +9,16 @@ import { addDays, daysBetween, formatShort } from '@/lib/krama/time';
 import { BoardView, MenuItem } from './BoardView';
 import { CardModal } from './CardModal';
 import { MonthCalendar, nextWorkingDay, useTodaySL, type CalItem } from './calendar';
+import { BoardAdmin } from './BoardAdmin';
 import { MembersView } from './MembersView';
 import { useBoard } from './store';
 import { RoleBadge, TeamProvider } from './team';
 import { Icon, LabelChip, Popover, PopTitle, PriorityMark, kfield } from './ui';
 
-type View = 'board' | 'calendar' | 'members';
+type View = 'board' | 'calendar' | 'members' | 'admin';
 const VIEWS: View[] = ['board', 'calendar', 'members'];
-const VIEW_NAME: Record<View, string> = { board: 'Board', calendar: 'Calendar', members: 'Members & Roles' };
-const VIEW_ICON = { board: 'board', calendar: 'calendar', members: 'users' } as const;
+const VIEW_NAME: Record<View, string> = { board: 'Board', calendar: 'Calendar', members: 'Members & Roles', admin: 'Admin' };
+const VIEW_ICON = { board: 'board', calendar: 'calendar', members: 'users', admin: 'shield' } as const;
 
 type DueFilter = 'overdue' | 'today' | 'week' | 'none' | 'done';
 const DUE_FILTERS: { id: DueFilter; name: string }[] = [
@@ -44,7 +45,9 @@ export function BoardApp({ initial }: { initial: BoardData }) {
   const router = useRouter();
   const today = useTodaySL();
 
-  const [view, setView] = useState<View>(() => (VIEWS.includes(params.get('view') as View) ? (params.get('view') as View) : 'board'));
+  // the Admin tab is for the project's creator (and the Krama admin)
+  const views: View[] = perm.canManage ? [...VIEWS, 'admin'] : VIEWS;
+  const [view, setView] = useState<View>(() => (views.includes(params.get('view') as View) ? (params.get('view') as View) : 'board'));
   const [openId, setOpenId] = useState<string | null>(() => {
     const id = params.get('card');
     return id && initial.cards[id] ? id : null;
@@ -183,16 +186,11 @@ export function BoardApp({ initial }: { initial: BoardData }) {
         </div>
 
         <div className="ml-1 flex max-w-full overflow-x-auto rounded-full border border-line-2 bg-ink/50 p-0.5 backdrop-blur [scrollbar-width:none]" role="tablist" aria-label="View">
-          {VIEWS.map((v) => (
-            <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => switchView(v)} className={`flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-sm transition-colors ${view === v ? 'bg-bone text-ink' : 'text-bone-2 hover:text-bone'}`}>
+          {views.map((v) => (
+            <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => switchView(v)} className={`flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-sm transition-colors ${view === v ? (v === 'admin' ? 'bg-ember text-ink' : 'bg-bone text-ink') : v === 'admin' ? 'text-ember hover:bg-ember/15' : 'text-bone-2 hover:text-bone'}`}>
               <Icon name={VIEW_ICON[v]} className="size-3.5" /> {VIEW_NAME[v]}
             </button>
           ))}
-          {perm.isAdmin && (
-            <Link href={`/labs/krama/admin?from=${board.id}`} className="flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-3 text-sm text-ember transition-colors hover:bg-ember/15">
-              <Icon name="shield" className="size-3.5" /> Admin
-            </Link>
-          )}
         </div>
 
         <div className="ml-auto flex flex-wrap items-center gap-2">
@@ -310,6 +308,8 @@ export function BoardApp({ initial }: { initial: BoardData }) {
         <BoardView data={state} api={api} visible={visible} filtering={filtering} onOpen={open} composerFor={composerFor} setComposerFor={setComposerFor} />
       ) : view === 'members' ? (
         <MembersView data={state} api={api} />
+      ) : view === 'admin' && perm.canManage ? (
+        <BoardAdmin data={state} api={api} onOpenCard={open} />
       ) : (
         <div className="flex min-h-0 flex-1 px-[var(--gutter)] pb-4">
           <MonthCalendar

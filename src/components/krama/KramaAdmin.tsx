@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation';
 import { useMemo, useState, useTransition } from 'react';
 import { Avatar } from '@/components/auth/AccountMenu';
 import { RelativeTime } from '@/components/ui/RelativeTime';
-import { deleteBoard, removeMember, updateMember, type KramaResult } from '@/lib/actions/krama';
+import { addMember, deleteBoard, removeMember, updateMember, type KramaResult } from '@/lib/actions/krama';
 import type { AdminData } from '@/lib/krama/data';
 import { ACCESS, COLORS, THEMES, type Access } from '@/lib/krama/model';
 import { formatShort } from '@/lib/krama/time';
-import { Icon, type IconName } from './ui';
+import { CopyInvite } from './invite';
+import { Icon, kfield, type IconName } from './ui';
 
 type Tab = 'overview' | 'boards' | 'people' | 'activity';
 const TABS: { id: Tab; name: string; icon: IconName }[] = [
@@ -29,11 +30,14 @@ export function KramaAdmin({ data, from, initialTab, me }: { data: AdminData; fr
   const [pending, start] = useTransition();
   const [note, setNote] = useState<{ ok: boolean; text: string } | null>(null);
 
+  const [invite, setInvite] = useState<{ boardId: string; boardTitle: string; email: string } | null>(null);
   /** Run an action, show the result, reload the panel's data. */
-  const run = (fn: () => Promise<KramaResult>, done: string) =>
+  const run = (fn: () => Promise<KramaResult>, done: string, onOk?: () => void) =>
     start(async () => {
       const r = await fn().catch(() => ({ ok: false as const, error: 'Something went wrong. Please try again.' }));
       setNote(r.ok ? { ok: true, text: done } : { ok: false, text: r.error });
+      if (r.ok) onOk?.();
+      else setInvite(null);
       router.refresh();
     });
 
@@ -73,8 +77,11 @@ export function KramaAdmin({ data, from, initialTab, me }: { data: AdminData; fr
 
       {note && (
         <p role="status" className={`mt-4 flex items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-sm ${note.ok ? 'border-[#4fbf7a]/30 bg-[#4fbf7a]/[0.06] text-bone-2' : 'border-red-400/30 bg-red-500/[0.06] text-red-200'}`}>
-          {note.text}
-          <button type="button" onClick={() => setNote(null)} className="text-mute hover:text-bone" aria-label="Dismiss"><Icon name="x" className="size-3.5" /></button>
+          <span className="flex flex-wrap items-center gap-3">
+            {note.text}
+            {note.ok && invite && <CopyInvite boardId={invite.boardId} boardTitle={invite.boardTitle} email={invite.email} />}
+          </span>
+          <button type="button" onClick={() => { setNote(null); setInvite(null); }} className="text-mute hover:text-bone" aria-label="Dismiss"><Icon name="x" className="size-3.5" /></button>
         </p>
       )}
 
@@ -84,10 +91,19 @@ export function KramaAdmin({ data, from, initialTab, me }: { data: AdminData; fr
         {tab === 'people' && (
           <People
             data={data}
+            onAdd={(input) => {
+              const board = data.boards.find((b) => b.id === input.boardId);
+              setInvite(null);
+              run(
+                () => addMember(input.boardId, { id: crypto.randomUUID(), email: input.email, name: input.name, access: input.access, roleIds: input.roleIds }),
+                `Added ${input.name || input.email} to "${board?.title ?? 'the project'}". Send them the invite:`,
+                () => setInvite({ boardId: input.boardId, boardTitle: board?.title ?? 'Project', email: input.email }),
+              );
+            }}
             onAccess={(boardId, memberId, access, who) => run(() => updateMember(boardId, memberId, { access }), `${who} now has ${ACCESS[access].name.toLowerCase()} on that board.`)}
             onRemove={(boardId, memberId, who, board) => confirm(`Remove ${who} from "${board}"?`) && run(() => removeMember(boardId, memberId), `Removed ${who} from "${board}".`)}
             onRemoveAll={(person) => {
-              if (!confirm(`Remove ${person.name || person.email} from all ${person.boards.length} boards? They lose access to Krama unless they also have Labs access.`)) return;
+              if (!confirm(`Remove ${person.name || person.email} from all ${person.boards.length} shared projects? They keep any projects of their own (delete those under Boards if needed).`)) return;
               run(async () => {
                 for (const b of person.boards) {
                   const r = await removeMember(b.boardId, b.memberId);
@@ -214,13 +230,93 @@ function Boards({ data, onDelete }: { data: AdminData; onDelete: (id: string, ti
   );
 }
 
+type AddInput = { boardId: string; email: string; name: string; access: Access; roleIds: string[] };
+
+/** Add someone to any project from the panel (same rules as the project's Members & roles tab). */
+function AddToProject({ data, onAdd }: { data: AdminData; onAdd: (input: AddInput) => void }) {
+  const [boardId, setBoardId] = useState(data.boards[0]?.id ?? '');
+  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
+  const [access, setAccess] = useState<Access>('tick');
+  const [roleIds, setRoleIds] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const roles = data.rolesByBoard[boardId] ?? [];
+  if (!data.boards.length) return null;
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        const em = email.trim().toLowerCase();
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(em)) return setError('That doesn’t look like an email address.');
+        setError(null);
+        onAdd({ boardId, email: em, name: name.trim(), access, roleIds });
+        setEmail('');
+        setName('');
+        setRoleIds([]);
+      }}
+      className="mb-6 rounded-[1.2rem] border border-line bg-ink-2/60 p-5"
+      aria-labelledby="k-a-add"
+    >
+      <h2 id="k-a-add" className="text-lg font-medium">Add someone to a project</h2>
+      <p className="mt-1 text-sm text-mute">They sign in with this Google account and see the project under “Shared with you”. They can also start projects of their own.</p>
+      <div className="mt-4 grid gap-3 md:grid-cols-3">
+        <div>
+          <label htmlFor="k-a-board" className="text-xs text-mute">Project</label>
+          <select id="k-a-board" value={boardId} onChange={(e) => { setBoardId(e.target.value); setRoleIds([]); }} className={`${kfield} mt-1 [color-scheme:dark]`}>
+            {data.boards.map((b) => <option key={b.id} value={b.id}>{b.title} · {b.ownerName}</option>)}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="k-a-email" className="text-xs text-mute">Google email</label>
+          <input id="k-a-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@gmail.com" autoComplete="off" spellCheck={false} className={`${kfield} mt-1`} />
+        </div>
+        <div>
+          <label htmlFor="k-a-name" className="text-xs text-mute">Name (optional)</label>
+          <input id="k-a-name" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} placeholder="e.g. Sachini" className={`${kfield} mt-1`} />
+        </div>
+      </div>
+      <div className="mt-4 flex flex-wrap items-end gap-x-6 gap-y-3">
+        <div>
+          <p className="mb-1.5 text-xs text-mute">Access</p>
+          <div className="flex rounded-full border border-line-2 bg-ink p-0.5" role="radiogroup" aria-label="Access">
+            {(['full', 'tick'] as Access[]).map((a) => (
+              <button key={a} type="button" role="radio" aria-checked={access === a} onClick={() => setAccess(a)} title={ACCESS[a].body} className={`h-8 rounded-full px-3 text-xs transition-colors ${access === a ? (a === 'full' ? 'bg-ember text-ink' : 'bg-[#5fd0e6] text-[#04232a]') : 'text-mute hover:text-bone'}`}>
+                {ACCESS[a].short}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="min-w-0">
+          <p className="mb-1.5 text-xs text-mute">Roles in this project</p>
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Roles">
+            {roles.map((r) => {
+              const on = roleIds.includes(r.id);
+              return (
+                <button key={r.id} type="button" aria-pressed={on} title={`${r.code}: ${r.name}`} onClick={() => setRoleIds(on ? roleIds.filter((x) => x !== r.id) : [...roleIds, r.id])} className={`flex h-7 items-center gap-1 rounded-md border px-2 font-mono text-[0.7rem] font-semibold ${on ? 'border-transparent' : 'border-line-2 text-mute hover:border-bone hover:text-bone'}`} style={on ? { background: COLORS[r.color].bg, color: COLORS[r.color].fg } : undefined}>
+                  {on && <Icon name="check" className="size-3" strokeWidth={3} />}
+                  {r.code}
+                </button>
+              );
+            })}
+            {roles.length === 0 && <span className="text-xs text-mute">Open the project once to set up its roles.</span>}
+          </div>
+        </div>
+        <button type="submit" disabled={!email.trim() || !boardId} className="ml-auto h-10 rounded-full bg-bone px-5 text-sm font-medium text-ink transition-colors hover:bg-ember disabled:opacity-40">Add to project</button>
+      </div>
+      {error && <p className="mt-3 text-sm text-red-300" role="alert">{error}</p>}
+    </form>
+  );
+}
+
 function People({
   data,
+  onAdd,
   onAccess,
   onRemove,
   onRemoveAll,
 }: {
   data: AdminData;
+  onAdd: (input: AddInput) => void;
   onAccess: (boardId: string, memberId: string, access: Access, who: string) => void;
   onRemove: (boardId: string, memberId: string, who: string, board: string) => void;
   onRemoveAll: (person: AdminData['people'][number]) => void;
@@ -229,6 +325,7 @@ function People({
   const list = data.people.filter((p) => !q || `${p.name} ${p.email} ${p.account?.name ?? ''}`.toLowerCase().includes(q.toLowerCase()));
   return (
     <div>
+      <AddToProject data={data} onAdd={onAdd} />
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="max-w-[62ch] text-sm text-mute">Everyone invited to a board. Click an access chip to switch between full access and read and tick. To add people or change roles, open the board&apos;s Members &amp; roles.</p>
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search people" aria-label="Search people" className="h-10 w-64 rounded-full border border-line-2 bg-ink px-4 text-sm placeholder:text-mute focus:border-ember/60 focus:outline-none" />
