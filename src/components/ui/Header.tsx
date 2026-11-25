@@ -69,7 +69,7 @@ export function Header({ account, labs }: { account: ReactNode; labs?: { desktop
     <>
       <header
         ref={bar}
-        className="no-print fixed inset-x-0 top-0 z-[80] container-x"
+        className="site-header no-print fixed inset-x-0 top-0 z-[80] container-x"
         style={{ viewTransitionName: 'site-header' }}
       >
         <div className="flex h-[var(--header-h)] items-center justify-between gap-6">

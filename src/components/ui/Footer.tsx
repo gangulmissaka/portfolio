@@ -8,7 +8,7 @@ import { RollText } from '@/components/motion/RollText';
 
 export function Footer() {
   return (
-    <footer className="no-print relative overflow-clip border-t border-line bg-ink container-x pb-8 pt-24 md:pt-36">
+    <footer className="site-footer no-print relative overflow-clip border-t border-line bg-ink container-x pb-8 pt-24 md:pt-36">
       <div
         aria-hidden
         className="pointer-events-none absolute -bottom-1/2 left-1/2 h-[70vh] w-[90vw] -translate-x-1/2 rounded-full opacity-40 blur-[120px]"

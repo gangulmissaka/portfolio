@@ -107,6 +107,16 @@ for them). Tabs:
   admin) see a "Labs" link after "Contact" in the menu; for everyone else, signed in or not, the link isn't there
   and `/labs` is the normal "page not found". Changes apply on the person's next page load.
 
+## Labs: Krama
+
+**Krama** (`/labs/krama`) is a task planner for people with Labs access: boards with themes, lists and cards
+with drag and drop, card details (description, labels, checklists, due date and time, priority, cover colour,
+comments, archive), search and filters, and a month calendar in Sri Lanka time (GMT+5:30) that highlights Poya
+days, public and bank holidays, and mercantile holidays. Each person only sees their own boards.
+
+Holiday data is in `src/lib/krama/holidays.ts`: official gazetted lists for 2026 and 2027, estimates for 2025 and
+2028 (marked as such in the app). When the government publishes a new year's list, add it to `OFFICIAL` there.
+
 ## Editing content
 
 All text lives in **`src/content/site.ts`**: profile, projects (case studies), process, capabilities, education,

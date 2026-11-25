@@ -7,7 +7,7 @@ import { useEffect } from 'react';
 export function PageViewBeacon() {
   const pathname = usePathname();
   useEffect(() => {
-    if (!pathname || pathname.startsWith('/admin')) return;
+    if (!pathname || pathname.startsWith('/admin') || pathname.startsWith('/labs')) return; // private areas aren't counted
     const body = JSON.stringify({ path: pathname });
     if (!navigator.sendBeacon?.('/api/view', new Blob([body], { type: 'application/json' }))) {
       fetch('/api/view', { method: 'POST', body, keepalive: true, headers: { 'content-type': 'application/json' } }).catch(() => {});

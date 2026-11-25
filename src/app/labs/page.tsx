@@ -37,18 +37,34 @@ async function Labs() {
         </p>
         <h1 className="display mt-6 text-[clamp(3.4rem,10vw,10rem)]">Labs</h1>
         <p className="lead mt-6 max-w-[48ch]">
-          Hi {user.name.split(' ')[0]}. This is where early experiments will live before they are ready for the rest of the site.
+          Hi {user.name.split(' ')[0]}. This is where early experiments live before they are ready for the rest of the site.
           You can see it because you have been given access.
         </p>
       </FadeUp>
 
-      <FadeUp delay={0.15} className="mt-12 flex flex-col items-start gap-6 rounded-[1.4rem] border border-dashed border-line-2 p-8 md:p-12">
-        <span className="rounded-full border border-line-2 px-2.5 py-0.5 text-[0.65rem] uppercase tracking-[0.12em] text-mute">Coming soon</span>
-        <p className="max-w-[52ch] text-2xl font-medium tracking-tight">Nothing here yet. The first experiments are on their way.</p>
-        <div className="flex flex-wrap gap-3">
-          {user.isAdmin && <Link href="/admin/labs" className="btn btn-solid">Manage who has access</Link>}
-          <Link href="/work" className="btn">Back to the work</Link>
-        </div>
+      <FadeUp delay={0.15} as="ul" className="mt-12 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        <li>
+          <Link
+            href="/labs/krama"
+            className="group flex h-full min-h-64 flex-col justify-between overflow-hidden rounded-[1.4rem] border border-line p-7 transition-all duration-500 hover:-translate-y-1 hover:border-ember/50 hover:shadow-2xl hover:shadow-black/50"
+            style={{ background: 'radial-gradient(120% 90% at 0% 0%, #4a2511 0%, #1c120b 48%, #0f0b08 100%)' }}
+          >
+            <span className="flex items-center justify-between">
+              <span className="rounded-full bg-ember/15 px-2.5 py-0.5 text-[0.65rem] uppercase tracking-[0.12em] text-ember">Live</span>
+              <span className="text-bone-2 transition-transform duration-500 group-hover:translate-x-1" aria-hidden>→</span>
+            </span>
+            <span>
+              <span className="block text-3xl font-medium tracking-tight">Krama</span>
+              <span className="mt-2 block leading-relaxed text-bone-2">
+                A task planner with boards, lists and cards, drag and drop, and a calendar that knows Sri Lankan holidays and Poya days.
+              </span>
+            </span>
+          </Link>
+        </li>
+        <li className="flex min-h-64 flex-col justify-center rounded-[1.4rem] border border-dashed border-line-2 p-7 text-mute">
+          <span className="text-sm">More experiments are on their way.</span>
+          {user.isAdmin && <Link href="/admin/labs" className="mt-4 w-fit text-sm text-bone-2 underline underline-offset-4 hover:text-bone">Manage who has access</Link>}
+        </li>
       </FadeUp>
     </div>
   );

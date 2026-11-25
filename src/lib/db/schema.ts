@@ -1,4 +1,4 @@
-import { pgTable, text, boolean, timestamp, integer, bigint, date, primaryKey, uniqueIndex, index } from 'drizzle-orm/pg-core';
+import { pgTable, text, boolean, timestamp, integer, bigint, date, jsonb, primaryKey, uniqueIndex, index } from 'drizzle-orm/pg-core';
 
 // ── Better Auth tables (column names match Better Auth's default field names) ──
 export const user = pgTable('user', {
@@ -114,6 +114,81 @@ export const labsAccess = pgTable('labs_access', {
   createdAt: timestamp('createdAt').notNull().defaultNow(),
 });
 
+// ── Krama (Labs task planner). Every row hangs off a board, and every board belongs to one user. ──
+export const kramaBoard = pgTable(
+  'krama_board',
+  {
+    id: text('id').primaryKey(),
+    userId: text('userId').notNull().references(() => user.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    theme: text('theme').notNull().default('ember'),
+    starred: boolean('starred').notNull().default(false),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  },
+  (t) => [index('krama_board_user_idx').on(t.userId)],
+);
+
+export const kramaLabel = pgTable(
+  'krama_label',
+  {
+    id: text('id').primaryKey(),
+    boardId: text('boardId').notNull().references(() => kramaBoard.id, { onDelete: 'cascade' }),
+    name: text('name').notNull().default(''),
+    color: text('color').notNull(),
+    position: integer('position').notNull().default(0),
+  },
+  (t) => [index('krama_label_board_idx').on(t.boardId)],
+);
+
+export const kramaList = pgTable(
+  'krama_list',
+  {
+    id: text('id').primaryKey(),
+    boardId: text('boardId').notNull().references(() => kramaBoard.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    position: integer('position').notNull().default(0),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+  },
+  (t) => [index('krama_list_board_idx').on(t.boardId)],
+);
+
+/** Due dates are Sri Lanka local date/time strings ("2026-12-25", "17:30"), so they never shift with time zones. */
+export const kramaCard = pgTable(
+  'krama_card',
+  {
+    id: text('id').primaryKey(),
+    boardId: text('boardId').notNull().references(() => kramaBoard.id, { onDelete: 'cascade' }),
+    listId: text('listId').notNull().references(() => kramaList.id, { onDelete: 'cascade' }),
+    title: text('title').notNull(),
+    description: text('description').notNull().default(''),
+    position: integer('position').notNull().default(0),
+    dueDate: text('dueDate'),
+    dueTime: text('dueTime'),
+    dueDone: boolean('dueDone').notNull().default(false),
+    priority: text('priority').notNull().default('none'),
+    cover: text('cover'),
+    labelIds: jsonb('labelIds').$type<string[]>().notNull().default([]),
+    checklists: jsonb('checklists').$type<{ id: string; title: string; items: { id: string; text: string; done: boolean }[] }[]>().notNull().default([]),
+    archived: boolean('archived').notNull().default(false),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+    updatedAt: timestamp('updatedAt').notNull().defaultNow(),
+  },
+  (t) => [index('krama_card_board_idx').on(t.boardId), index('krama_card_list_idx').on(t.listId)],
+);
+
+export const kramaComment = pgTable(
+  'krama_comment',
+  {
+    id: text('id').primaryKey(),
+    cardId: text('cardId').notNull().references(() => kramaCard.id, { onDelete: 'cascade' }),
+    userId: text('userId').notNull().references(() => user.id, { onDelete: 'cascade' }),
+    body: text('body').notNull(),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+  },
+  (t) => [index('krama_comment_card_idx').on(t.cardId)],
+);
+
 export const authSchema = { user, session, account, verification };
 
 /** Idempotent DDL: run on first use (and by `npm run db:setup`). Mirrors the tables above. */
@@ -152,4 +227,30 @@ create table if not exists "user_ban" ("userId" text primary key references "use
 create table if not exists "site_setting" ("key" text primary key, "value" text not null);
 create table if not exists "rate_limit" ("key" text primary key, "count" integer not null, "windowStart" bigint not null);
 create table if not exists "labs_access" ("key" text primary key, "email" text not null, "note" text, "createdAt" timestamp not null default now());
+create table if not exists "krama_board" (
+  "id" text primary key, "userId" text not null references "user"("id") on delete cascade, "title" text not null,
+  "theme" text not null default 'ember', "starred" boolean not null default false,
+  "createdAt" timestamp not null default now(), "updatedAt" timestamp not null default now());
+create index if not exists krama_board_user_idx on "krama_board"("userId");
+create table if not exists "krama_label" (
+  "id" text primary key, "boardId" text not null references "krama_board"("id") on delete cascade,
+  "name" text not null default '', "color" text not null, "position" integer not null default 0);
+create index if not exists krama_label_board_idx on "krama_label"("boardId");
+create table if not exists "krama_list" (
+  "id" text primary key, "boardId" text not null references "krama_board"("id") on delete cascade, "title" text not null,
+  "position" integer not null default 0, "createdAt" timestamp not null default now());
+create index if not exists krama_list_board_idx on "krama_list"("boardId");
+create table if not exists "krama_card" (
+  "id" text primary key, "boardId" text not null references "krama_board"("id") on delete cascade,
+  "listId" text not null references "krama_list"("id") on delete cascade, "title" text not null,
+  "description" text not null default '', "position" integer not null default 0, "dueDate" text, "dueTime" text,
+  "dueDone" boolean not null default false, "priority" text not null default 'none', "cover" text,
+  "labelIds" jsonb not null default '[]'::jsonb, "checklists" jsonb not null default '[]'::jsonb,
+  "archived" boolean not null default false, "createdAt" timestamp not null default now(), "updatedAt" timestamp not null default now());
+create index if not exists krama_card_board_idx on "krama_card"("boardId");
+create index if not exists krama_card_list_idx on "krama_card"("listId");
+create table if not exists "krama_comment" (
+  "id" text primary key, "cardId" text not null references "krama_card"("id") on delete cascade,
+  "userId" text not null references "user"("id") on delete cascade, "body" text not null, "createdAt" timestamp not null default now());
+create index if not exists krama_comment_card_idx on "krama_comment"("cardId");
 `;

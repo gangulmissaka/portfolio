@@ -57,6 +57,19 @@ building while the dev server runs is fine).
   for any future Labs server action. The nav link is a server island (`components/labs/LabsNav.tsx`) passed into
   the header's `labs` slot, so people without access never get it in their HTML. Emails match via `labsKey()`
   (Gmail dots/`+tags`/googlemail ignored). Keep Labs out of NAV, the sitemap, footer and command palette.
+  Page views under `/labs` are not counted.
+- **Krama** (`/labs/krama`, Trello-style planner inside Labs): tables `krama_board/list/card/label/comment`, every
+  row owned through `krama_board.userId`. Server actions in `lib/actions/krama.ts` (Labs check → board ownership →
+  zod; all writes filtered by boardId); loaders in `lib/krama/data.ts`; client state in `components/krama/store.ts`
+  (optimistic: update locally, persist with an action, toast + `router.refresh()` on failure; ids are client UUIDs).
+  Drag and drop is `@dnd-kit` (`BoardView.tsx`, calendar in `calendar.tsx`). Gotchas: DragOverlay must be
+  portalled to `<body>` (a `backdrop-filter` ancestor offsets fixed elements); give `DndContext` a `useId()` id
+  (hydration); in single-table selects Drizzle renders `${table.col}` as a bare column, so correlated subqueries
+  need the column written out (`sql.raw('"krama_board"."id"')`). Due dates are stored as SLST strings
+  ("YYYY-MM-DD", "HH:MM"); time helpers in `lib/krama/time.ts`. Sri Lankan holidays live in
+  `lib/krama/holidays.ts`: 2026-27 official (gazette sources in the file), 2025/2028 estimated, from the user's
+  "srilanka" MCP tool (`C:\Users\User\Desktop\MYAPPS\MCP control\servers\lk_calendar\holidays.json`). Add a year
+  there when a new gazette is out. Board pages set `data-krama-app`, which hides the footer and locks page scroll.
 - **Editing on Windows**: never round-trip files through PowerShell `Get-Content`/`Set-Content` (it reads UTF-8 as
   ANSI and garbles emoji, curly quotes and `·`). Keep LF line endings (the repo is LF; Python on Windows writes CRLF
   unless given `newline='\n'`). Long bash heredocs can fail here; write scripts to the scratchpad with the Write tool.
