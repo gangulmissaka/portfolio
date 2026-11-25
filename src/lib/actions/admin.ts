@@ -6,6 +6,8 @@ import { getCurrentUser } from '@/lib/auth';
 import { db, dbReady, schema } from '@/lib/db';
 import { env } from '@/lib/env';
 import { setModeration } from '@/lib/settings';
+import { labsKey } from '@/lib/labs';
+import { z } from 'zod';
 
 export type AdminResult = { ok: boolean; message?: string };
 
@@ -53,6 +55,32 @@ export async function setGuestbookModeration(on: boolean) {
   await requireAdmin();
   await setModeration(on);
   refresh();
+}
+
+// ── Labs access ──
+const LabsEmail = z.email('That doesn’t look like an email address.').max(160);
+
+export async function grantLabsAccess(email: string, note?: string): Promise<AdminResult> {
+  await requireAdmin();
+  const parsed = LabsEmail.safeParse(email.trim().toLowerCase());
+  if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message };
+  const key = labsKey(parsed.data);
+  if (env.adminEmails.some((a) => labsKey(a) === key)) return { ok: false, message: 'Admin accounts always have access.' };
+  const [existing] = await db.select({ email: schema.labsAccess.email }).from(schema.labsAccess).where(eq(schema.labsAccess.key, key));
+  if (existing) return { ok: false, message: `Already approved as ${existing.email}.` };
+  await db
+    .insert(schema.labsAccess)
+    .values({ key, email: parsed.data, note: note?.trim().slice(0, 120) || null })
+    .onConflictDoNothing();
+  refresh();
+  return { ok: true };
+}
+
+export async function revokeLabsAccess(key: string): Promise<AdminResult> {
+  await requireAdmin();
+  await db.delete(schema.labsAccess).where(eq(schema.labsAccess.key, key));
+  refresh();
+  return { ok: true };
 }
 
 // ── Users ──

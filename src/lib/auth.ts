@@ -6,6 +6,7 @@ import { eq } from 'drizzle-orm';
 import { headers } from 'next/headers';
 import { unstable_rethrow } from 'next/navigation';
 import { connection } from 'next/server';
+import { cache } from 'react';
 import { db, dbReady, schema } from './db';
 import { env } from './env';
 
@@ -39,8 +40,11 @@ export const auth = betterAuth({
 
 export type SessionUser = { id: string; name: string; email: string; image: string | null; isAdmin: boolean; banned: boolean };
 
-/** Reads the session for the current request. Call only inside a <Suspense> boundary (request-time data). */
-export async function getCurrentUser(): Promise<SessionUser | null> {
+/**
+ * Reads the session for the current request. Call only inside a <Suspense> boundary (request-time data).
+ * Wrapped in React `cache` so the header's several session islands share one lookup per request.
+ */
+export const getCurrentUser = cache(async function getCurrentUser(): Promise<SessionUser | null> {
   await connection(); // session checks compare against the current time → always request-time
   const h = await headers();
   try {
@@ -61,4 +65,4 @@ export async function getCurrentUser(): Promise<SessionUser | null> {
     console.error('[auth] getSession failed', e);
     return null;
   }
-}
+});

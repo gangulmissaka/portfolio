@@ -5,6 +5,7 @@ import './globals.css';
 import { SITE } from '@/content/site';
 import { SmoothScroll } from '@/components/motion/SmoothScroll';
 import { Header } from '@/components/ui/Header';
+import { LabsNav } from '@/components/labs/LabsNav';
 import { Footer } from '@/components/ui/Footer';
 import { Cursor } from '@/components/ui/Cursor';
 import { Preloader } from '@/components/ui/Preloader';
@@ -66,6 +67,18 @@ export default function RootLayout({ children }: LayoutProps<'/'>) {
               <Account />
             </Suspense>
           }
+          labs={{
+            desktop: (
+              <Suspense fallback={null}>
+                <LabsNav variant="desktop" />
+              </Suspense>
+            ),
+            mobile: (
+              <Suspense fallback={null}>
+                <LabsNav variant="mobile" />
+              </Suspense>
+            ),
+          }}
         />
         <main id="main">{children}</main>
         <Footer />

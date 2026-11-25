@@ -103,6 +103,17 @@ export const userBan = pgTable('user_ban', {
 /** Small key/value store for settings the admin can change live (e.g. guestbook moderation). */
 export const siteSetting = pgTable('site_setting', { key: text('key').primaryKey(), value: text('value').notNull() });
 
+/**
+ * Who may open /labs besides the admin. Keyed by email, not user id, so access can be granted before the person
+ * has ever signed in. `key` is the normalised address (see lib/labs.ts); `email` is what the admin typed.
+ */
+export const labsAccess = pgTable('labs_access', {
+  key: text('key').primaryKey(),
+  email: text('email').notNull(),
+  note: text('note'),
+  createdAt: timestamp('createdAt').notNull().defaultNow(),
+});
+
 export const authSchema = { user, session, account, verification };
 
 /** Idempotent DDL: run on first use (and by `npm run db:setup`). Mirrors the tables above. */
@@ -140,4 +151,5 @@ create table if not exists "page_view" ("path" text not null, "day" date not nul
 create table if not exists "user_ban" ("userId" text primary key references "user"("id") on delete cascade, "reason" text, "createdAt" timestamp not null default now());
 create table if not exists "site_setting" ("key" text primary key, "value" text not null);
 create table if not exists "rate_limit" ("key" text primary key, "count" integer not null, "windowStart" bigint not null);
+create table if not exists "labs_access" ("key" text primary key, "email" text not null, "note" text, "createdAt" timestamp not null default now());
 `;

@@ -7,11 +7,17 @@ import { gsap, ScrollTrigger, useGSAP } from '@/lib/gsap';
 import { getLenis } from '@/components/motion/SmoothScroll';
 import { NAV, SITE } from '@/content/site';
 import { LocalTime } from './LocalTime';
-import { RollText } from '@/components/motion/RollText';
+import { MobileNavLink, NavLink } from './NavLink';
 
 export const openPalette = () => window.dispatchEvent(new CustomEvent('palette:open'));
 
-export function Header({ account }: { account: ReactNode }) {
+const MOBILE_NAV = [{ href: '/', label: 'Home' }, ...NAV];
+
+/**
+ * `labs` holds the private Labs link as server islands (one per menu), rendered only for accounts with access.
+ * It is a slot rather than a prop flag so the header never ships the link to people who can't use it.
+ */
+export function Header({ account, labs }: { account: ReactNode; labs?: { desktop: ReactNode; mobile: ReactNode } }) {
   const pathname = usePathname();
   const bar = useRef<HTMLElement>(null);
   const menu = useRef<HTMLDivElement>(null);
@@ -78,20 +84,10 @@ export function Header({ account }: { account: ReactNode }) {
           </Link>
 
           <nav aria-label="Main" className="hidden items-center gap-1 rounded-full border border-line bg-ink/55 p-1 backdrop-blur-xl md:flex">
-            {NAV.map((item) => {
-              const active = pathname === item.href || pathname.startsWith(item.href + '/');
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  transitionTypes={['nav-forward']}
-                  className={`relative rounded-full px-4 py-2 text-sm transition-colors duration-300 ${active ? 'bg-bone text-ink' : 'text-bone-2 hover:text-bone'}`}
-                  aria-current={active ? 'page' : undefined}
-                >
-                  <RollText>{item.label}</RollText>
-                </Link>
-              );
-            })}
+            {NAV.map((item) => (
+              <NavLink key={item.href} href={item.href} label={item.label} />
+            ))}
+            {labs?.desktop}
           </nav>
 
           <div className="flex items-center gap-2">
@@ -127,14 +123,10 @@ export function Header({ account }: { account: ReactNode }) {
         style={{ clipPath: 'inset(0% 0% 100% 0%)' }}
       >
         <nav aria-label="Mobile" className="flex flex-col">
-          {[{ href: '/', label: 'Home' }, ...NAV].map((item, i) => (
-            <Link key={item.href} href={item.href} className="overflow-clip border-b border-line py-3">
-              <span data-mi className="flex items-baseline justify-between">
-                <span className="display text-[clamp(2.8rem,13vw,5rem)]">{item.label}</span>
-                <span className="font-mono text-xs text-mute">0{i + 1}</span>
-              </span>
-            </Link>
+          {MOBILE_NAV.map((item, i) => (
+            <MobileNavLink key={item.href} href={item.href} label={item.label} index={i} />
           ))}
+          {labs?.mobile}
         </nav>
         <div className="flex items-end justify-between text-sm text-bone-2">
           <div className="flex flex-col gap-1">

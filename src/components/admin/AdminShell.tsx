@@ -11,6 +11,7 @@ export async function AdminShell({ user, children }: { user: SessionUser; childr
       unread: sql<number>`(select count(*)::int from "message" where "status" = 'new')`,
       pending: sql<number>`(select count(*)::int from "guestbook" where "status" = 'pending')`,
       users: sql<number>`(select count(*)::int from "user")`,
+      labs: sql<number>`(select count(*)::int from "labs_access")`,
     })
     .from(sql`(select 1) as one`);
 
@@ -25,7 +26,7 @@ export async function AdminShell({ user, children }: { user: SessionUser; childr
         </div>
         <p className="text-xs text-mute">{dbKind === 'pglite' ? 'Local test database (resets on restart)' : 'Live database'}</p>
       </div>
-      <AdminTabs counts={{ users: Number(c.users), guestbook: Number(c.pending), messages: Number(c.unread) }} />
+      <AdminTabs counts={{ users: Number(c.users), guestbook: Number(c.pending), messages: Number(c.unread), labs: Number(c.labs) }} />
       <div className="mt-10">{children}</div>
     </div>
   );

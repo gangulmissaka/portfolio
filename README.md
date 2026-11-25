@@ -15,7 +15,7 @@ Better Auth · Drizzle ORM · Postgres (Neon) · Resend
 | **https://gangulmissaka.github.io/valley/** | The previous 3D portfolio (repo `gangulmissaka.github.io`), linked from here |
 
 Status (2026-11-24): live and working, including Google sign-in, the members area, guestbook, reactions,
-contact form and the admin panel.
+contact form and the admin panel. The Work page lists 22 projects (university and personal work).
 
 ---
 
@@ -103,13 +103,22 @@ for them). Tabs:
 - **Guestbook**: filter by Waiting / Published / Hidden, search, select several notes, then Publish, Hide or Delete.
   The **Approve notes before they go public** switch takes effect immediately.
 - **Messages**: contact-form inbox with reply by email, read/unread, archive and delete.
+- **Labs**: add or remove the Google addresses allowed into the private **Labs** section. Approved people (and the
+  admin) see a "Labs" link after "Contact" in the menu; for everyone else, signed in or not, the link isn't there
+  and `/labs` is the normal "page not found". Changes apply on the person's next page load.
 
 ## Editing content
 
 All text lives in **`src/content/site.ts`**: profile, projects (case studies), process, capabilities, education,
 interests, LinkedIn posts and `MEMBER_FEATURES` (what signing in unlocks; add new member features there).
 Photos are in `src/assets/me`, project images in `src/assets/work`; project covers are drawn in code in
-`src/components/work/ProjectCover.tsx`.
+`src/components/work/ProjectCover.tsx` (one `case` per project slug), and real screenshots shown on a case study are
+listed in `src/components/work/gallery.ts`. The filter chips on /work come from `CATEGORIES` in `site.ts`.
+
+**Adding a project:** add an entry to `PROJECTS` in `site.ts` (its position sets the order and the "Next project"
+link; `featured: true` puts it on the home page), add a `case` for its slug in `ProjectCover.tsx`, and optionally
+screenshots in `gallery.ts`. University work is described in our own words with our own visuals: never publish
+assignment briefs, marking guides, reports, or code and data supplied by a unit.
 
 ## Where things are
 
