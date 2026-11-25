@@ -24,8 +24,11 @@ export type KCard = {
   roleId: string | null;
   doneBy: string | null;
   doneAt: string | null;
+  /** Sent back for revision and not ticked again yet. */
+  revision: { reason: string; by: string | null; at: string } | null;
   createdAt: string;
 };
+export type KRevision = { id: string; cardId: string; byId: string | null; targetId: string | null; reason: string; createdAt: string; resolvedAt: string | null };
 export type KRole = { id: string; code: string; name: string; color: LabelColor };
 export type Access = 'full' | 'tick';
 export type KMember = {
@@ -58,6 +61,8 @@ export type BoardData = {
   owner: { id: string; name: string; email: string; image: string | null };
   /** Names for doneBy ids (people who ticked cards). */
   people: Record<string, { name: string; image: string | null }>;
+  /** Every revision request on this board (for the Progress scoreboard). */
+  revisions: KRevision[];
   /** Latest activity on this board; only loaded for people who manage it (owner, Krama admin). */
   activity: { id: string; action: string; cardId: string | null; createdAt: string; user: { name: string; image: string | null } | null }[];
   perm: Perm;
@@ -145,7 +150,7 @@ export const PRIORITIES: Record<Priority, { name: string; color: string; rank: n
 export const PRIORITY_IDS = Object.keys(PRIORITIES) as Priority[];
 
 // ── Limits (enforced on the server, mirrored in the inputs) ──
-export const LIMITS = { roleCode: 6, roleName: 60, memberName: 60, title: 200, listTitle: 80, boardTitle: 80, description: 8000, comment: 2000, label: 30, checklistTitle: 80, item: 300, checklists: 10, items: 100 };
+export const LIMITS = { revision: 500, roleCode: 6, roleName: 60, memberName: 60, title: 200, listTitle: 80, boardTitle: 80, description: 8000, comment: 2000, label: 30, checklistTitle: 80, item: 300, checklists: 10, items: 100 };
 
 // ── Due status ──
 export type DueState = 'done' | 'overdue' | 'today' | 'soon' | 'later';

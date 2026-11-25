@@ -22,6 +22,7 @@ export function CardModal({ cardId, data, api, onClose }: { cardId: string; data
   const ref = useRef<HTMLDialogElement>(null);
   const card = data.cards[cardId];
   const [panel, setPanel] = useState<Panel>(null);
+  const [revising, setRevising] = useState(false);
   const { perm, roles, canTick, roleOf } = useTeam();
   const edit = perm.canEdit;
 
@@ -99,6 +100,18 @@ export function CardModal({ cardId, data, api, onClose }: { cardId: string; data
                 )}
               </p>
 
+              {/* sent back for revision */}
+              {card.revision && (
+                <div className="mt-5 rounded-2xl border border-[#ef5d5d]/50 bg-[#ef5d5d]/[0.08] p-4 shadow-[0_0_30px_-10px_rgb(239_93_93/0.7)]" role="note">
+                  <p className="flex items-center gap-2 text-sm font-medium text-[#ff9f9f]">
+                    <Icon name="restore" className="size-4" /> Sent back for revision
+                    <span className="font-normal text-mute">by {card.revision.by === data.me.id ? 'you' : (card.revision.by && data.people[card.revision.by]?.name) || 'a teammate'} · <RelativeTime iso={card.revision.at} /></span>
+                  </p>
+                  <p className="mt-1.5 whitespace-pre-wrap break-words text-sm leading-relaxed text-bone-2">{card.revision.reason}</p>
+                  <p className="mt-2 text-xs text-mute">Fix it and tick it again to clear this.</p>
+                </div>
+              )}
+
               {/* done */}
               <div className={`mt-5 flex flex-wrap items-center gap-3 rounded-2xl border p-3 ${card.dueDone ? 'border-[#4fbf7a]/40 bg-[#4fbf7a]/[0.07]' : 'border-line bg-ink/40'}`}>
                 <button
@@ -116,7 +129,19 @@ export function CardModal({ cardId, data, api, onClose }: { cardId: string; data
                   ) : null}
                   {tickable ? (card.dueDone ? 'Click again to reopen it.' : `${whoCanTick} can tick this card.`) : notYours}
                 </p>
+                {card.dueDone && edit && (
+                  <button type="button" onClick={() => setRevising((v) => !v)} aria-expanded={revising} className="flex h-9 items-center gap-2 rounded-full bg-[#ef5d5d] px-4 text-sm font-medium text-[#2d0707] transition-colors hover:bg-[#ff7070]">
+                    <Icon name="restore" strokeWidth={2.2} /> Revision
+                  </button>
+                )}
               </div>
+              {revising && card.dueDone && edit && (
+                <RevisionForm
+                  onCancel={() => setRevising(false)}
+                  onConfirm={(reason) => { api.requestRevision(card.id, reason); setRevising(false); }}
+                  who={card.doneBy ? (card.doneBy === data.me.id ? 'you' : data.people[card.doneBy]?.name ?? 'the person who ticked it') : 'the person who ticked it'}
+                />
+              )}
 
               {/* meta row */}
               <div className="mt-6 flex flex-wrap gap-x-7 gap-y-4">
@@ -286,6 +311,36 @@ export function CardModal({ cardId, data, api, onClose }: { cardId: string; data
         </article>
       </div>
     </dialog>
+  );
+}
+
+/** Reason first, then confirm: sending work back must always say why. */
+function RevisionForm({ onConfirm, onCancel, who }: { onConfirm: (reason: string) => void; onCancel: () => void; who: string }) {
+  const [reason, setReason] = useState('');
+  const ok = reason.trim().length >= 3;
+  return (
+    <form
+      onSubmit={(e) => { e.preventDefault(); if (ok) onConfirm(reason.trim().slice(0, LIMITS.revision)); }}
+      className="mt-3 rounded-2xl border border-[#ef5d5d]/50 bg-ink p-4"
+      aria-label="Send back for revision"
+    >
+      <label htmlFor="k-rev-reason" className="text-sm font-medium text-[#ff9f9f]">Why does this need another look?</label>
+      <AutoTextarea
+        id="k-rev-reason"
+        autoFocus
+        value={reason}
+        maxLength={LIMITS.revision}
+        onChange={(e) => setReason(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); onCancel(); } }}
+        placeholder="e.g. The login page breaks on mobile"
+        className="mt-2 min-h-20 w-full rounded-xl border border-line-2 bg-ink-2 px-3 py-2.5 text-sm leading-relaxed outline-none placeholder:text-mute focus:border-[#ef5d5d]/70"
+      />
+      <p className="mt-2 text-xs text-mute">This unticks the card, marks it red for everyone, and costs {who} 15 points on the Progress scoreboard.</p>
+      <div className="mt-3 flex gap-2">
+        <button type="submit" disabled={!ok} className="h-9 rounded-full bg-[#ef5d5d] px-4 text-sm font-medium text-[#2d0707] transition-colors hover:bg-[#ff7070] disabled:opacity-40">Send back for revision</button>
+        <button type="button" onClick={onCancel} className="h-9 rounded-full px-3 text-sm text-mute hover:text-bone">Cancel</button>
+      </div>
+    </form>
   );
 }
 

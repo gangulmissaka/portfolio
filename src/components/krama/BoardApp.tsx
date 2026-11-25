@@ -11,22 +11,24 @@ import { CardModal } from './CardModal';
 import { MonthCalendar, nextWorkingDay, useTodaySL, type CalItem } from './calendar';
 import { BoardAdmin } from './BoardAdmin';
 import { MembersView } from './MembersView';
+import { ProgressView } from './ProgressView';
 import { useBoard } from './store';
 import { RoleBadge, TeamProvider } from './team';
 import { Icon, LabelChip, Popover, PopTitle, PriorityMark, kfield } from './ui';
 
-type View = 'board' | 'calendar' | 'members' | 'admin';
-const VIEWS: View[] = ['board', 'calendar', 'members'];
-const VIEW_NAME: Record<View, string> = { board: 'Board', calendar: 'Calendar', members: 'Members & Roles', admin: 'Admin' };
-const VIEW_ICON = { board: 'board', calendar: 'calendar', members: 'users', admin: 'shield' } as const;
+type View = 'board' | 'calendar' | 'members' | 'progress' | 'admin';
+const VIEWS: View[] = ['board', 'calendar', 'members', 'progress'];
+const VIEW_NAME: Record<View, string> = { board: 'Board', calendar: 'Calendar', members: 'Members & Roles', progress: 'Progress', admin: 'Admin' };
+const VIEW_ICON = { board: 'board', calendar: 'calendar', members: 'users', progress: 'sun', admin: 'shield' } as const;
 
-type DueFilter = 'overdue' | 'today' | 'week' | 'none' | 'done';
+type DueFilter = 'overdue' | 'today' | 'week' | 'none' | 'done' | 'revision';
 const DUE_FILTERS: { id: DueFilter; name: string }[] = [
   { id: 'overdue', name: 'Overdue' },
   { id: 'today', name: 'Due today' },
   { id: 'week', name: 'Due in the next 7 days' },
   { id: 'none', name: 'No due date' },
   { id: 'done', name: 'Done' },
+  { id: 'revision', name: 'Sent back for revision' },
 ];
 
 /** Keep ?card= and ?view= in the address bar without a navigation (so links and reloads land on the same place). */
@@ -96,6 +98,7 @@ export function BoardApp({ initial }: { initial: BoardData }) {
         const ok = fDue.some((f) => {
           if (f === 'none') return !c.dueDate;
           if (f === 'done') return s === 'done';
+          if (f === 'revision') return !!c.revision;
           if (f === 'overdue') return s === 'overdue';
           if (f === 'today') return c.dueDate === today && s !== 'done';
           return !!c.dueDate && s !== 'done' && daysBetween(today, c.dueDate) >= 0 && daysBetween(today, c.dueDate) <= 7;
@@ -122,6 +125,7 @@ export function BoardApp({ initial }: { initial: BoardData }) {
       else if (e.key === 'c') switchView('calendar');
       else if (e.key === 'b') switchView('board');
       else if (e.key === 'm') switchView('members');
+      else if (e.key === 'p') switchView('progress');
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -289,7 +293,7 @@ export function BoardApp({ initial }: { initial: BoardData }) {
                 }}>Delete board</MenuItem>}
               </div>
               <p className="mt-2 border-t border-line px-1 pt-3 text-[0.7rem] leading-relaxed text-mute">
-                Shortcuts: <kbd className="font-mono text-bone-2">/</kbd> search{edit && <> · <kbd className="font-mono text-bone-2">N</kbd> new card</>} · <kbd className="font-mono text-bone-2">B</kbd> board · <kbd className="font-mono text-bone-2">C</kbd> calendar · <kbd className="font-mono text-bone-2">M</kbd> members{edit && <> · <kbd className="font-mono text-bone-2">Space</kbd> pick up a focused card, arrows to move</>}
+                Shortcuts: <kbd className="font-mono text-bone-2">/</kbd> search{edit && <> · <kbd className="font-mono text-bone-2">N</kbd> new card</>} · <kbd className="font-mono text-bone-2">B</kbd> board · <kbd className="font-mono text-bone-2">C</kbd> calendar · <kbd className="font-mono text-bone-2">M</kbd> members · <kbd className="font-mono text-bone-2">P</kbd> progress{edit && <> · <kbd className="font-mono text-bone-2">Space</kbd> pick up a focused card, arrows to move</>}
               </p>
             </Popover>
           </div>
@@ -308,6 +312,8 @@ export function BoardApp({ initial }: { initial: BoardData }) {
         <BoardView data={state} api={api} visible={visible} filtering={filtering} onOpen={open} composerFor={composerFor} setComposerFor={setComposerFor} />
       ) : view === 'members' ? (
         <MembersView data={state} api={api} />
+      ) : view === 'progress' ? (
+        <ProgressView data={state} />
       ) : view === 'admin' && perm.canManage ? (
         <BoardAdmin data={state} api={api} onOpenCard={open} />
       ) : (

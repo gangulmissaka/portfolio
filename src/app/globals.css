@@ -309,6 +309,29 @@ body:has([data-krama-app]) .site-header { transform: none !important; }
 .k-pop { animation: k-pop 0.22s var(--ease-out-expo); transform-origin: top; }
 .k-dialog[open] .k-modal { animation: k-rise 0.45s var(--ease-out-expo); }
 .k-dialog[open]::backdrop { animation: k-fade 0.3s ease-out; }
+/* Progress: the leader's medal ring breathes, and confetti bursts once */
+.k-champion { box-shadow: 0 0 0 0 var(--medal); animation: k-champion 2.4s ease-in-out infinite; }
+@keyframes k-champion {
+  0%, 100% { box-shadow: 0 0 18px 2px color-mix(in srgb, var(--medal) 45%, transparent); }
+  50% { box-shadow: 0 0 38px 10px color-mix(in srgb, var(--medal) 60%, transparent); }
+}
+.k-confetti span {
+  position: absolute; left: 0; top: 0; width: 7px; height: 11px; border-radius: 2px; opacity: 0;
+  animation: k-confetti 1.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+@keyframes k-confetti {
+  0% { opacity: 1; transform: translate(0, 0) rotate(0deg) scale(0.6); }
+  70% { opacity: 1; }
+  100% { opacity: 0; transform: translate(var(--x), calc(var(--y) + 60px)) rotate(var(--r)) scale(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .k-champion { animation: none; box-shadow: 0 0 26px 6px color-mix(in srgb, var(--medal) 50%, transparent); }
+  .k-confetti { display: none; }
+}
+
+/* a card sent back for revision glows red */
+.k-revision { box-shadow: 0 0 0 1px rgb(239 93 93 / 0.35), 0 0 22px -4px rgb(239 93 93 / 0.75); }
+
 @keyframes k-pop { from { opacity: 0; transform: translateY(-4px) scale(0.98); } }
 @keyframes k-rise { from { opacity: 0; transform: translateY(18px) scale(0.985); } }
 @keyframes k-fade { from { opacity: 0; } }

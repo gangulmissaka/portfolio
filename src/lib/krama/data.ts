@@ -6,7 +6,7 @@ import { labsKey } from '@/lib/labs-key';
 import { boardAccess, seedRoles } from './access';
 import type { Access, BoardData, CoverColor, KCard, KComment, KMember, LabelColor, Priority, ThemeId } from './model';
 
-const { kramaBoard: B, kramaList: L, kramaCard: C, kramaLabel: LB, kramaComment: CM, kramaRole: R, kramaMember: M, kramaActivity: ACT, user: U } = schema;
+const { kramaBoard: B, kramaList: L, kramaCard: C, kramaLabel: LB, kramaComment: CM, kramaRole: R, kramaMember: M, kramaActivity: ACT, kramaRevision: RV, user: U } = schema;
 
 /** Every account, keyed by normalised email (to match Krama members to the people who signed in). */
 async function accountsByKey() {
@@ -82,6 +82,7 @@ const toCard = (c: typeof C.$inferSelect): KCard => ({
   roleId: c.roleId,
   doneBy: c.doneBy,
   doneAt: c.doneAt ? c.doneAt.toISOString() : null,
+  revision: c.revisionAt && c.revisionReason ? { reason: c.revisionReason, by: c.revisionBy, at: c.revisionAt.toISOString() } : null,
   createdAt: c.createdAt.toISOString(),
 });
 
@@ -108,6 +109,7 @@ export async function loadBoard(user: SessionUser, boardId: string): Promise<Boa
     db.select().from(M).where(eq(M.boardId, boardId)).orderBy(asc(M.createdAt)),
     accountsByKey(),
   ]);
+  const revisions = await db.select().from(RV).where(eq(RV.boardId, boardId)).orderBy(asc(RV.createdAt));
 
   const cardIds = cards.map((c) => c.id);
   const comments = cardIds.length
@@ -145,7 +147,8 @@ export async function loadBoard(user: SessionUser, boardId: string): Promise<Boa
         .limit(40)
     : [];
   const people: BoardData['people'] = {};
-  for (const id of new Set(cards.map((c) => c.doneBy).filter(Boolean) as string[])) {
+  const peopleIds = [...cards.map((c) => c.doneBy), ...cards.map((c) => c.revisionBy), ...revisions.map((r) => r.byUserId), ...revisions.map((r) => r.targetUserId)];
+  for (const id of new Set(peopleIds.filter(Boolean) as string[])) {
     const a = [...accounts.values()].find((u) => u.id === id);
     if (a) people[id] = { name: a.name, image: a.image };
   }
@@ -162,6 +165,7 @@ export async function loadBoard(user: SessionUser, boardId: string): Promise<Boa
     members: kmembers,
     owner: { id: board.userId, name: owner?.name ?? 'Owner', email: owner?.email ?? '', image: owner?.image ?? null },
     people,
+    revisions: revisions.map((r) => ({ id: r.id, cardId: r.cardId, byId: r.byUserId, targetId: r.targetUserId, reason: r.reason, createdAt: r.createdAt.toISOString(), resolvedAt: r.resolvedAt ? r.resolvedAt.toISOString() : null })),
     activity: activity.map((a) => ({ id: a.id, action: a.action, cardId: a.cardId, createdAt: a.createdAt.toISOString(), user: a.name ? { name: a.name, image: a.image } : null })),
     perm: { canEdit: acc.canEdit, canManage: acc.canManage, isOwner: acc.isOwner, isAdmin: acc.isAdmin, all: acc.all, roleIds: acc.roleIds, access: acc.access },
     me: { id: user.id, name: user.name, image: user.image },

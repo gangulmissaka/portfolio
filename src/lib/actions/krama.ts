@@ -20,7 +20,7 @@ import type { SessionUser } from '@/lib/auth';
  * Krama admin; "manage" covers members and roles). Ticking a card done follows canTickCard().
  */
 
-const { kramaBoard: B, kramaList: L, kramaCard: C, kramaLabel: LB, kramaComment: CM, kramaRole: R, kramaMember: M, kramaActivity: ACT } = schema;
+const { kramaBoard: B, kramaList: L, kramaCard: C, kramaLabel: LB, kramaComment: CM, kramaRole: R, kramaMember: M, kramaActivity: ACT, kramaRevision: RV } = schema;
 export type KramaResult = { ok: true } | { ok: false; error: string };
 const fail = (error: string): KramaResult => ({ ok: false, error });
 const OK: KramaResult = { ok: true };
@@ -272,8 +272,34 @@ export async function setCardDone(boardId: string, cardId: string, done: boolean
       return fail(role ? `Only people with the ${role.code} role can tick this card.` : 'You can’t tick this card.');
     }
     const d = z.boolean().parse(done);
-    await db.update(C).set({ dueDone: d, doneBy: d ? user.id : null, doneAt: d ? new Date() : null, updatedAt: new Date() }).where(and(eq(C.id, card.id), eq(C.boardId, acc.boardId)));
+    const now = new Date();
+    // ticking it again closes any open revision request
+    const clearRevision = d ? { revisionReason: null, revisionBy: null, revisionAt: null } : {};
+    await db.update(C).set({ dueDone: d, doneBy: d ? user.id : null, doneAt: d ? now : null, updatedAt: now, ...clearRevision }).where(and(eq(C.id, card.id), eq(C.boardId, acc.boardId)));
+    if (d && card.revisionAt) await db.update(RV).set({ resolvedAt: now }).where(and(eq(RV.cardId, card.id), sql`${RV.resolvedAt} is null`));
     await log(acc.boardId, user.id, `${d ? 'ticked' : 'unticked'} ${q(card.title)}`, card.id);
+    return OK;
+  });
+}
+
+/**
+ * Send a finished card back: full access only, a reason is required. Unticks it, marks it for revision (red on the
+ * board) and records who did the work, who loses points on the Progress scoreboard.
+ */
+export async function requestRevision(boardId: string, cardId: string, reason: string): Promise<KramaResult> {
+  return guard(async () => {
+    const { user, acc } = await access(boardId, 'edit');
+    const r = z.string().trim().min(3, 'Please give a reason (a few words is enough).').max(LIMITS.revision).safeParse(reason);
+    if (!r.success) return fail(r.error.issues[0]?.message ?? 'Please give a reason.');
+    const card = await cardOnBoard(cardId, acc.boardId);
+    if (!card.dueDone) return fail('Only a ticked (done) card can be sent back for revision.');
+    const now = new Date();
+    await db.insert(RV).values({ id: crypto.randomUUID(), boardId: acc.boardId, cardId: card.id, byUserId: user.id, targetUserId: card.doneBy, reason: r.data, createdAt: now });
+    await db
+      .update(C)
+      .set({ dueDone: false, doneBy: null, doneAt: null, revisionReason: r.data, revisionBy: user.id, revisionAt: now, updatedAt: now })
+      .where(and(eq(C.id, card.id), eq(C.boardId, acc.boardId)));
+    await log(acc.boardId, user.id, `sent ${q(card.title)} back for revision: ${r.data}`, card.id);
     return OK;
   });
 }

@@ -83,7 +83,14 @@ building while the dev server runs is fine).
   (`components/krama/invite.tsx`); sign-in redirects signed-in visitors to a safe same-site `next`.
   Each board has an **Admin** tab for its creator and the site admin (`BoardAdmin.tsx`): Add members uses the
   people picker (`people.tsx` → `searchPeople` action). Privacy rule in `searchPeople`: the site admin may search
-  every account; other owners only accounts already in Labs/Krama; anyone else is added by typing a full email. Never export helpers like `seedRoles`
+  every account; other owners only accounts already in Labs/Krama; anyone else is added by typing a full email.
+- **Krama revisions & Progress**: full-access people can send a ticked card back (`requestRevision`, reason
+  required): it unticks, gets `revision*` columns (red `.k-revision` glow) and a `krama_revision` row; ticking it
+  again clears it. The Progress tab (`ProgressView.tsx`) scores everyone from `lib/krama/score.ts` (pure; rules in
+  its header comment: early tiers +5..+30, -1 per 10 min late capped -100, live overdue penalty for role holders,
+  -15 per revision). Scores are computed in the browser only (server renders a placeholder) to avoid hydration
+  mismatches from `Date.now()`. Chart colours: dark steps of the dataviz reference palette, validated on #14110e,
+  assigned by team order (colour follows the person). E2E: `run-all.ps1` runs each suite on a fresh dev server. Never export helpers like `seedRoles`
   from the `'use server'` file: every export there is callable from the browser. Activity is logged to
   `krama_activity` for the admin panel (`/labs/krama/admin`, admin only). Boards refresh in the background every
   20 s when idle (BoardApp). Multi-user E2E: four dev accounts; Better Auth rate-limits sign-ups (retry on 429);

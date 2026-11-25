@@ -175,6 +175,10 @@ export const kramaCard = pgTable(
     roleId: text('roleId'),
     doneBy: text('doneBy'),
     doneAt: timestamp('doneAt'),
+    /** Open revision request (a full-access person sent the finished card back), cleared when it is ticked again. */
+    revisionReason: text('revisionReason'),
+    revisionBy: text('revisionBy'),
+    revisionAt: timestamp('revisionAt'),
     createdAt: timestamp('createdAt').notNull().defaultNow(),
     updatedAt: timestamp('updatedAt').notNull().defaultNow(),
   },
@@ -212,6 +216,22 @@ export const kramaMember = pgTable(
     createdAt: timestamp('createdAt').notNull().defaultNow(),
   },
   (t) => [uniqueIndex('krama_member_unique').on(t.boardId, t.key), index('krama_member_key_idx').on(t.key)],
+);
+
+/** Every revision request, kept for the Progress scoreboard (the person whose work was sent back loses points). */
+export const kramaRevision = pgTable(
+  'krama_revision',
+  {
+    id: text('id').primaryKey(),
+    boardId: text('boardId').notNull().references(() => kramaBoard.id, { onDelete: 'cascade' }),
+    cardId: text('cardId').notNull().references(() => kramaCard.id, { onDelete: 'cascade' }),
+    byUserId: text('byUserId'),
+    targetUserId: text('targetUserId'),
+    reason: text('reason').notNull(),
+    createdAt: timestamp('createdAt').notNull().defaultNow(),
+    resolvedAt: timestamp('resolvedAt'),
+  },
+  (t) => [index('krama_revision_board_idx').on(t.boardId)],
 );
 
 /** Who did what, for the admin panel. */
@@ -322,4 +342,12 @@ create table if not exists "krama_activity" (
   "userId" text references "user"("id") on delete set null, "cardId" text, "action" text not null,
   "createdAt" timestamp not null default now());
 create index if not exists krama_activity_board_idx on "krama_activity"("boardId", "createdAt");
+alter table "krama_card" add column if not exists "revisionReason" text;
+alter table "krama_card" add column if not exists "revisionBy" text;
+alter table "krama_card" add column if not exists "revisionAt" timestamp;
+create table if not exists "krama_revision" (
+  "id" text primary key, "boardId" text not null references "krama_board"("id") on delete cascade,
+  "cardId" text not null references "krama_card"("id") on delete cascade, "byUserId" text, "targetUserId" text,
+  "reason" text not null, "createdAt" timestamp not null default now(), "resolvedAt" timestamp);
+create index if not exists krama_revision_board_idx on "krama_revision"("boardId");
 `;

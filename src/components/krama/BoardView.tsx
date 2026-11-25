@@ -416,9 +416,13 @@ export function CardFace({ card, labels, commentCount = 0, lifted = false, onTog
   const role = roleOf(card.roleId);
   const cardLabels = card.labelIds.map((id) => labels.find((l) => l.id === id)).filter(Boolean) as KLabel[];
   const prog = checklistProgress(card.checklists);
-  const hasMeta = !!(card.dueDate || card.description || prog.total || card.priority !== 'none' || commentCount || role);
+  const hasMeta = !!(card.dueDate || card.description || prog.total || card.priority !== 'none' || commentCount || role || card.revision);
   return (
-    <div className={`group overflow-hidden rounded-xl border bg-ink-2 transition-[border-color,box-shadow,transform] duration-300 ${lifted ? 'border-ember/60 shadow-2xl shadow-black/70' : 'border-line hover:border-line-2 hover:shadow-lg hover:shadow-black/40'}`}>
+    <div
+      className={`group overflow-hidden rounded-xl border bg-ink-2 transition-[border-color,box-shadow,transform] duration-300 ${
+        lifted ? 'border-ember/60 shadow-2xl shadow-black/70' : card.revision ? 'k-revision border-[#ef5d5d]/70' : 'border-line hover:border-line-2 hover:shadow-lg hover:shadow-black/40'
+      }`}
+    >
       {card.cover && <div className="h-8" style={{ background: COLORS[card.cover].bg }} aria-hidden />}
       <div className="p-2.5">
         {cardLabels.length > 0 && (
@@ -452,6 +456,11 @@ export function CardFace({ card, labels, commentCount = 0, lifted = false, onTog
         </div>
         {hasMeta && (
           <div className="mt-2 flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-mute">
+            {card.revision && (
+              <span className="inline-flex h-5 items-center gap-1 rounded-md bg-[#ef5d5d] px-1.5 text-[0.65rem] font-semibold uppercase tracking-wide text-[#2d0707]" title={`Sent back for revision: ${card.revision.reason}`}>
+                <Icon name="restore" className="size-3" strokeWidth={2.4} /> Revision
+              </span>
+            )}
             {role && <RoleBadge role={role} />}
             {card.dueDate && <DueBadge card={card} onToggle={onToggleDone} />}
             <PriorityMark priority={card.priority} />

@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import * as A from '@/lib/actions/krama';
 import type { KramaResult } from '@/lib/actions/krama';
-import { uid, type BoardData, type KBoard, type KCard, type KComment, type KLabel, type KList, type KMember, type KRole } from '@/lib/krama/model';
+import { uid, type BoardData, type KBoard, type KCard, type KComment, type KLabel, type KList, type KMember, type KRevision, type KRole } from '@/lib/krama/model';
 
 /**
  * Board state for the client. Every change is applied locally first (so the UI never waits on the network) and
@@ -13,7 +13,7 @@ import { uid, type BoardData, type KBoard, type KCard, type KComment, type KLabe
  */
 
 /** Fields a full-access person edits. Ticking done goes through setDone (it has its own permission rule). */
-export type CardPatch = Partial<Omit<KCard, 'id' | 'listId' | 'createdAt' | 'dueDone' | 'doneBy' | 'doneAt'>>;
+export type CardPatch = Partial<Omit<KCard, 'id' | 'listId' | 'createdAt' | 'dueDone' | 'doneBy' | 'doneAt' | 'revision'>>;
 
 type Act =
   | { t: 'reset'; data: BoardData }
@@ -34,7 +34,8 @@ type Act =
   | { t: 'role/save'; role: KRole }
   | { t: 'role/delete'; id: string }
   | { t: 'member/save'; member: KMember }
-  | { t: 'member/delete'; id: string };
+  | { t: 'member/delete'; id: string }
+  | { t: 'revision/add'; revision: KRevision };
 
 const without = (ids: string[], id: string) => ids.filter((x) => x !== id);
 
@@ -121,6 +122,8 @@ function reducer(s: BoardData, a: Act): BoardData {
     }
     case 'member/delete':
       return { ...s, members: s.members.filter((m) => m.id !== a.id) };
+    case 'revision/add':
+      return { ...s, revisions: [...s.revisions, a.revision] };
   }
 }
 
@@ -203,7 +206,7 @@ export function useBoard(initial: BoardData) {
       addCard(listId: string, title: string, extra: { dueDate?: string | null; top?: boolean } = {}) {
         const card: KCard = {
           id: uid(), listId, title, description: '', dueDate: extra.dueDate ?? null, dueTime: null, dueDone: false, priority: 'none',
-          cover: null, labelIds: [], checklists: [], archived: false, roleId: null, doneBy: null, doneAt: null, createdAt: new Date().toISOString(),
+          cover: null, labelIds: [], checklists: [], archived: false, roleId: null, doneBy: null, doneAt: null, revision: null, createdAt: new Date().toISOString(),
         };
         dispatch({ t: 'card/add', card, index: extra.top ? 0 : undefined });
         const order = extra.top ? [card.id, ...(ref.current.order[listId] ?? [])] : undefined;
@@ -216,8 +219,20 @@ export function useBoard(initial: BoardData) {
       },
       /** Tick a card done (server checks the role rule). */
       setDone(id: string, done: boolean) {
-        dispatch({ t: 'card/patch', id, patch: { dueDone: done, doneBy: done ? ref.current.me.id : null, doneAt: done ? new Date().toISOString() : null } });
+        const prev = ref.current.cards[id];
+        // ticking it again closes an open revision request
+        dispatch({ t: 'card/patch', id, patch: { dueDone: done, doneBy: done ? ref.current.me.id : null, doneAt: done ? new Date().toISOString() : null, revision: done ? null : prev?.revision ?? null } });
         save(A.setCardDone(boardId, id, done));
+      },
+      /** Send a ticked card back with a reason (full access): unticks it and marks it red until it is ticked again. */
+      requestRevision(id: string, reason: string) {
+        const card = ref.current.cards[id];
+        if (!card) return;
+        const at = new Date().toISOString();
+        const me = ref.current.me.id;
+        dispatch({ t: 'revision/add', revision: { id: uid(), cardId: id, byId: me, targetId: card.doneBy, reason, createdAt: at, resolvedAt: null } });
+        dispatch({ t: 'card/patch', id, patch: { dueDone: false, doneBy: null, doneAt: null, revision: { reason, by: me, at } } });
+        save(A.requestRevision(boardId, id, reason));
       },
       /** Tick one checklist item. */
       setItem(cardId: string, checklistId: string, itemId: string, done: boolean) {
