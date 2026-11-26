@@ -9,6 +9,7 @@ import { addDays, daysBetween, formatShort } from '@/lib/krama/time';
 import { BoardView, MenuItem } from './BoardView';
 import { CardModal } from './CardModal';
 import { MonthCalendar, nextWorkingDay, useTodaySL, type CalItem } from './calendar';
+import { AppLock } from './AppLock';
 import { BoardAdmin } from './BoardAdmin';
 import { MembersView } from './MembersView';
 import { ProgressView } from './ProgressView';
@@ -160,6 +161,7 @@ export function BoardApp({ initial }: { initial: BoardData }) {
   return (
     <TeamProvider perm={perm} roles={roles} members={state.members}>
     <div data-krama-app className="relative flex h-dvh flex-col overflow-hidden pt-[var(--header-h)]" style={{ background: theme.bg }}>
+      <AppLock />
       {/* ── toolbar ── */}
       <div className="relative z-30 flex flex-wrap items-center gap-2 px-[var(--gutter)] pb-3 pt-3">
         <Link href="/labs/krama" className="grid size-9 shrink-0 place-items-center rounded-full border border-line-2 bg-ink/40 text-bone-2 backdrop-blur hover:border-bone hover:text-bone" aria-label="All boards">

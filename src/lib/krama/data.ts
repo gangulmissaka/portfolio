@@ -69,6 +69,25 @@ export async function listBoards(user: SessionUser) {
   }));
 }
 
+/** A project in the account menu's quick list. */
+export type MenuBoard = { id: string; title: string; theme: ThemeId; mine: boolean };
+
+/**
+ * The account menu's "Your projects" list: boards this user created or was added to as a member, starred first,
+ * then most recently changed. Light on purpose (no counts): it runs whenever the menu opens.
+ */
+export async function menuBoards(user: SessionUser): Promise<MenuBoard[]> {
+  await dbReady;
+  const key = labsKey(user.email);
+  const rows = await db
+    .select({ id: B.id, title: B.title, theme: B.theme, userId: B.userId })
+    .from(B)
+    .where(or(eq(B.userId, user.id), sql`exists(select 1 from "krama_member" m where m."boardId" = "krama_board"."id" and m."key" = ${key})`))
+    .orderBy(desc(B.starred), desc(B.updatedAt))
+    .limit(50);
+  return rows.map((r) => ({ id: r.id, title: r.title, theme: r.theme as ThemeId, mine: r.userId === user.id }));
+}
+
 const toCard = (c: typeof C.$inferSelect): KCard => ({
   id: c.id,
   listId: c.listId,

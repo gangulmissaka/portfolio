@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { signOut } from '@/lib/auth-client';
 import type { SessionUser } from '@/lib/auth';
+import { myMenuBoards } from '@/lib/actions/krama';
+import type { MenuBoard } from '@/lib/krama/data';
+import { THEMES } from '@/lib/krama/model';
 import { SignInButtons } from './SignIn';
 
 export function Avatar({ user, size = 36 }: { user: Pick<SessionUser, 'name' | 'image'>; size?: number }) {
@@ -19,10 +22,21 @@ export function Avatar({ user, size = 36 }: { user: Pick<SessionUser, 'name' | '
   );
 }
 
-export function AccountMenu({ user, providers }: { user: SessionUser | null; providers: ('google' | 'github')[] }) {
+export function AccountMenu({ user, providers, projects: initial = null }: { user: SessionUser | null; providers: ('google' | 'github')[]; projects?: MenuBoard[] | null }) {
   const [open, setOpen] = useState(false);
+  const [fresh, setFresh] = useState<MenuBoard[] | null>(null);
+  const projects = initial === null ? null : (fresh ?? initial);
   const box = useRef<HTMLDivElement>(null);
   const router = useRouter();
+
+  // the header outlives page changes, so the server's list would go stale (new project, someone adds you): refresh
+  // it each time the menu opens. No Labs access (initial === null) means no section and no call.
+  useEffect(() => {
+    if (!open || initial === null) return;
+    let live = true;
+    myMenuBoards().then((b) => live && setFresh(b), () => {});
+    return () => { live = false; };
+  }, [open, initial]);
 
   useEffect(() => {
     if (!open) return;
@@ -75,6 +89,7 @@ export function AccountMenu({ user, providers }: { user: SessionUser | null; pro
               </div>
               <Link role="menuitem" href="/account" className="rounded-lg px-2 py-2 hover:bg-ink-3" onClick={() => setOpen(false)}>My account</Link>
               <Link role="menuitem" href="/guestbook" className="rounded-lg px-2 py-2 hover:bg-ink-3" onClick={() => setOpen(false)}>Guestbook</Link>
+              {projects && <ProjectList projects={projects} close={() => setOpen(false)} />}
               {user.isAdmin && <Link role="menuitem" href="/admin" className="rounded-lg px-2 py-2 text-ember hover:bg-ink-3" onClick={() => setOpen(false)}>Admin dashboard</Link>}
               <button
                 role="menuitem"
@@ -92,6 +107,33 @@ export function AccountMenu({ user, providers }: { user: SessionUser | null; pro
             </div>
           )}
         </div>
+      )}
+    </div>
+  );
+}
+
+/** Krama projects the user created or joined, one click from anywhere on the site. */
+function ProjectList({ projects, close }: { projects: MenuBoard[]; close: () => void }) {
+  return (
+    <div className="my-1 border-y border-line py-2" role="group" aria-labelledby="menu-projects">
+      <div className="flex items-center justify-between px-2 pb-1">
+        <p id="menu-projects" className="text-[0.68rem] font-medium uppercase tracking-[0.14em] text-mute">Your projects</p>
+        <Link href="/labs/krama" className="text-xs text-mute hover:text-bone" onClick={close}>All</Link>
+      </div>
+      {projects.length ? (
+        <ul data-lenis-prevent className="k-scroll max-h-56 overflow-y-auto">
+          {projects.map((p) => (
+            <li key={p.id}>
+              <Link role="menuitem" href={`/labs/krama/b/${p.id}`} className="flex items-center gap-2.5 rounded-lg px-2 py-2 hover:bg-ink-3" onClick={close}>
+                <span className="size-2.5 shrink-0 rounded-full" style={{ background: THEMES[p.theme]?.swatch ?? THEMES.ember.swatch }} aria-hidden />
+                <span className="min-w-0 flex-1 truncate">{p.title}</span>
+                {!p.mine && <span className="shrink-0 rounded-full border border-line-2 px-1.5 py-px text-[0.65rem] text-mute">Shared</span>}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <Link role="menuitem" href="/labs/krama" className="block rounded-lg px-2 py-2 text-mute hover:bg-ink-3 hover:text-bone" onClick={close}>No projects yet. Start one in Krama</Link>
       )}
     </div>
   );

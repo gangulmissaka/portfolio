@@ -4,6 +4,7 @@ import { Suspense } from 'react';
 import { getLabsUser, requireLabsPage } from '@/lib/labs';
 import { dueCards } from '@/lib/krama/data';
 import { MonthCalendar } from '@/components/krama/calendar';
+import { AppLock } from '@/components/krama/AppLock';
 import { Icon } from '@/components/krama/ui';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -25,6 +26,7 @@ async function Calendar() {
   const due = await dueCards(user);
   return (
     <div data-krama-app className="flex h-dvh flex-col pt-[var(--header-h)]" style={{ background: 'radial-gradient(120% 90% at 0% 0%, #2a1a10 0%, #14100c 50%, #0c0a08 100%)' }}>
+      <AppLock />
       <div className="flex flex-wrap items-center gap-3 px-[var(--gutter)] py-3">
         <Link href="/labs/krama" className="grid size-9 place-items-center rounded-full border border-line-2 bg-ink/40 text-bone-2 hover:border-bone hover:text-bone" aria-label="All boards">
           <Icon name="back" />

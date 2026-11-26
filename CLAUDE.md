@@ -12,7 +12,8 @@ driving site, which still lives at gangulmissaka.github.io/valley/ (repo clone `
 
 ## Commands
 `npm run dev` (port 3000) · `npx tsc --noEmit -p .` · `npx eslint src` · `npx next build` (dev uses `.next/dev`, so
-building while the dev server runs is fine).
+building while the dev server runs is fine). If the dev server serves an old `globals.css` (Turbopack's cache in
+`.next/dev` survived a restart once), stop it, delete `.next/dev` and start again; check the served CSS, not the file.
 
 ## Things that matter
 - **Content** is only in `src/content/site.ts` (incl. `MEMBER_FEATURES` for the members area). The user asked
@@ -69,7 +70,10 @@ building while the dev server runs is fine).
   ("YYYY-MM-DD", "HH:MM"); time helpers in `lib/krama/time.ts`. Sri Lankan holidays live in
   `lib/krama/holidays.ts`: 2026-27 official (gazette sources in the file), 2025/2028 estimated, from the user's
   "srilanka" MCP tool (`C:\Users\User\Desktop\MYAPPS\MCP control\servers\lk_calendar\holidays.json`). Add a year
-  there when a new gazette is out. Board pages set `data-krama-app`, which hides the footer and locks page scroll.
+  there when a new gazette is out. Full-screen Krama pages render `<AppLock />` (`components/krama/AppLock.tsx`),
+  which puts `.krama-app` on `<html>` while mounted: hides the footer and locks page scroll. Never lock with a CSS
+  `:has(...)` on page content: Cache Components keeps the page you left in the DOM (hidden `<Activity>`), so a
+  `:has` lock froze scrolling on the whole site after leaving a board until refresh (bug fixed 2026-11-26).
 - **Krama teams**: boards can have members (`krama_member`, by normalised Google email via `lib/labs-key.ts`) with
   access `full` (edit) or `tick` (read + tick), and per-board roles (`krama_role`, default PM/BA/FE/BE/QA/ALL).
   Cards have `roleId`; `canTickCard()` in `lib/krama/model.ts` is THE tick rule, used by both server and UI:
@@ -84,6 +88,9 @@ building while the dev server runs is fine).
   Each board has an **Admin** tab for its creator and the site admin (`BoardAdmin.tsx`): Add members uses the
   people picker (`people.tsx` → `searchPeople` action). Privacy rule in `searchPeople`: the site admin may search
   every account; other owners only accounts already in Labs/Krama; anyone else is added by typing a full email.
+  **Account menu projects**: the header account menu lists "Your projects" under Guestbook (boards the user owns
+  or is a member of, `menuBoards()` in `lib/krama/data.ts`), only for people with Labs access (`projects` prop
+  null = no section). The header outlives navigation, so the list re-fetches with `myMenuBoards()` on each open.
 - **Krama revisions & Progress**: full-access people can send a ticked card back (`requestRevision`, reason
   required): it unticks, gets `revision*` columns (red `.k-revision` glow) and a `krama_revision` row; ticking it
   again clears it. The Progress tab (`ProgressView.tsx`) scores everyone from `lib/krama/score.ts` (pure; rules in

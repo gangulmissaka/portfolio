@@ -3,9 +3,10 @@
 import { and, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { db, schema } from '@/lib/db';
-import { requireLabsAction } from '@/lib/labs';
+import { getLabsUser, requireLabsAction } from '@/lib/labs';
 import { labsKey } from '@/lib/labs-key';
 import { boardAccess, seedRoles, type BoardAccess } from '@/lib/krama/access';
+import { menuBoards, type MenuBoard } from '@/lib/krama/data';
 import { upcomingHolidays } from '@/lib/krama/holidays';
 import { addDays, todaySL } from '@/lib/krama/time';
 import { canTickCard, COLOR_IDS, DEFAULT_LABELS, LIMITS, PRIORITY_IDS, THEME_IDS, type LabelColor, type Priority, type ThemeId } from '@/lib/krama/model';
@@ -107,6 +108,12 @@ async function writeOrder(table: 'krama_card' | 'krama_list', boardId: string, i
 }
 
 // ── Boards ──
+/** The account menu's project list, fresh each time the menu opens. Empty for anyone without Labs access. */
+export async function myMenuBoards(): Promise<MenuBoard[]> {
+  const user = await getLabsUser();
+  return user ? menuBoards(user) : [];
+}
+
 export async function createBoard(input: { id: string; title: string; theme: string; template: 'blank' | 'basic' | 'sample' }): Promise<KramaResult> {
   const user = await requireLabsAction();
   const p = z.object({ id: Id, title: text(LIMITS.boardTitle), theme: ThemeZ, template: z.enum(['blank', 'basic', 'sample']) }).safeParse(input);

@@ -294,12 +294,12 @@ html.is-loading, html.is-loading body { overflow: hidden; }
 
 /* ───────────────────────── Krama (Labs task planner) ───────────────────────── */
 @layer components {
-/* full-screen app pages: no footer under the board */
-body:has([data-krama-app]) .site-footer { display: none; }
+/* full-screen app pages (AppLock adds .krama-app to <html> while one is mounted): no footer under the board */
+html.krama-app .site-footer { display: none; }
 /* the app scrolls inside its panels, never the page (keeps the header in place) */
-html:has([data-krama-app]), html:has([data-krama-app]) body { overflow: hidden; height: 100%; }
+html.krama-app, html.krama-app body { overflow: hidden; height: 100%; }
 /* and the header stays put (its hide-on-scroll comes from page scrolling, which apps don't use) */
-body:has([data-krama-app]) .site-header { transform: none !important; }
+html.krama-app .site-header { transform: none !important; }
 
 .k-scroll { scrollbar-width: thin; scrollbar-color: rgb(237 230 218 / 0.22) transparent; }
 .k-scroll::-webkit-scrollbar { width: 8px; height: 10px; }

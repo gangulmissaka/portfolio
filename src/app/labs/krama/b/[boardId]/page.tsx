@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { Suspense } from 'react';
 import { getLabsUser, requireLabsPage } from '@/lib/labs';
 import { loadBoard } from '@/lib/krama/data';
+import { AppLock } from '@/components/krama/AppLock';
 import { BoardApp } from '@/components/krama/BoardApp';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -22,7 +23,7 @@ export function generateStaticParams() {
 
 export default function BoardPage({ params }: PageProps<'/labs/krama/b/[boardId]'>) {
   return (
-    <Suspense fallback={<div data-krama-app className="h-dvh bg-ink pt-[calc(var(--header-h)+4rem)]"><div className="container-x flex gap-3">{[0, 1, 2].map((i) => <div key={i} className="h-72 w-[17.5rem] animate-pulse rounded-2xl bg-ink-2" />)}</div></div>}>
+    <Suspense fallback={<div data-krama-app className="h-dvh bg-ink pt-[calc(var(--header-h)+4rem)]"><AppLock /><div className="container-x flex gap-3">{[0, 1, 2].map((i) => <div key={i} className="h-72 w-[17.5rem] animate-pulse rounded-2xl bg-ink-2" />)}</div></div>}>
       <Board params={params} />
     </Suspense>
   );

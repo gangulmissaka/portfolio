@@ -1,11 +1,17 @@
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/auth';
 import { providers } from '@/lib/env';
+import { hasLabsAccess } from '@/lib/labs';
+import { menuBoards } from '@/lib/krama/data';
 import { AccountMenu } from './AccountMenu';
 
-/** Server island: reads the session at request time (wrap in <Suspense>). Admins get an extra "Admin" button. */
+/**
+ * Server island: reads the session at request time (wrap in <Suspense>). Admins get an extra "Admin" button.
+ * People with Labs access also get their Krama projects in the menu (null = no Labs, so no section at all).
+ */
 export async function Account() {
   const user = await getCurrentUser();
+  const projects = user && (await hasLabsAccess(user)) ? await menuBoards(user) : null;
   return (
     <div className="flex items-center gap-2">
       {user?.isAdmin && (
@@ -16,7 +22,7 @@ export async function Account() {
           <span className="size-1.5 rounded-full bg-current" aria-hidden /> Admin
         </Link>
       )}
-      <AccountMenu user={user} providers={[...providers()]} />
+      <AccountMenu user={user} providers={[...providers()]} projects={projects} />
     </div>
   );
 }
