@@ -36,7 +36,8 @@ type Act =
   | { t: 'member/save'; member: KMember }
   | { t: 'member/delete'; id: string }
   | { t: 'revision/add'; revision: KRevision }
-  | { t: 'owner/roles'; roleIds: string[] };
+  | { t: 'owner/roles'; roleIds: string[] }
+  | { t: 'owner/firstName'; firstName: string };
 
 const without = (ids: string[], id: string) => ids.filter((x) => x !== id);
 
@@ -127,6 +128,8 @@ function reducer(s: BoardData, a: Act): BoardData {
       return { ...s, revisions: [...s.revisions, a.revision] };
     case 'owner/roles':
       return { ...s, owner: { ...s.owner, roleIds: a.roleIds } };
+    case 'owner/firstName':
+      return { ...s, owner: { ...s.owner, firstName: a.firstName } };
   }
 }
 
@@ -295,7 +298,7 @@ export function useBoard(initial: BoardData) {
         save(A.deleteRole(boardId, id));
       },
       addMember(input: { email: string; name: string; access: KMember['access']; roleIds: string[] }) {
-        const member: KMember = { id: uid(), email: input.email.trim().toLowerCase(), name: input.name.trim(), access: input.access, roleIds: input.roleIds, account: null };
+        const member: KMember = { id: uid(), email: input.email.trim().toLowerCase(), name: input.name.trim(), firstName: '', access: input.access, roleIds: input.roleIds, account: null };
         dispatch({ t: 'member/save', member });
         // reload after a successful add so the member's account (name, photo, signed-in status) shows straight away
         save(A.addMember(boardId, { id: member.id, email: member.email, name: member.name, access: member.access, roleIds: member.roleIds }).then((r) => {
@@ -303,7 +306,7 @@ export function useBoard(initial: BoardData) {
           return r;
         }));
       },
-      updateMember(id: string, patch: Partial<Pick<KMember, 'name' | 'access' | 'roleIds'>>) {
+      updateMember(id: string, patch: Partial<Pick<KMember, 'name' | 'firstName' | 'access' | 'roleIds'>>) {
         const m = ref.current.members.find((x) => x.id === id);
         if (!m) return;
         dispatch({ t: 'member/save', member: { ...m, ...patch } });
@@ -313,6 +316,11 @@ export function useBoard(initial: BoardData) {
       setOwnerRoles(roleIds: string[]) {
         dispatch({ t: 'owner/roles', roleIds });
         save(A.setOwnerRoles(boardId, roleIds));
+      },
+      /** The creator's real first name. */
+      setOwnerFirstName(firstName: string) {
+        dispatch({ t: 'owner/firstName', firstName });
+        save(A.setOwnerFirstName(boardId, firstName));
       },
       removeMember(id: string) {
         dispatch({ t: 'member/delete', id });

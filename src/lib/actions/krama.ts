@@ -499,10 +499,10 @@ export async function addMember(boardId: string, input: { id: string; email: str
   });
 }
 
-export async function updateMember(boardId: string, memberId: string, patch: { name?: string; access?: string; roleIds?: string[] }): Promise<KramaResult> {
+export async function updateMember(boardId: string, memberId: string, patch: { name?: string; firstName?: string; access?: string; roleIds?: string[] }): Promise<KramaResult> {
   return guard(async () => {
     const { user, acc } = await access(boardId, 'manage');
-    const p = z.object({ name: z.string().trim().max(LIMITS.memberName), access: AccessZ, roleIds: Ids }).partial().strict().safeParse(patch);
+    const p = z.object({ name: z.string().trim().max(LIMITS.memberName), firstName: z.string().trim().max(LIMITS.firstName), access: AccessZ, roleIds: Ids }).partial().strict().safeParse(patch);
     if (!p.success) return fail(p.error.issues[0]?.message ?? 'Invalid change.');
     const id = Id.parse(memberId);
     const [m] = await db.select().from(M).where(and(eq(M.id, id), eq(M.boardId, acc.boardId)));
@@ -533,6 +533,22 @@ export async function setOwnerRoles(boardId: string, roleIds: string[]): Promise
       .onConflictDoUpdate({ target: [M.boardId, M.key], set: { roleIds: ids } });
     const roles = await rolesOf(acc.boardId);
     await log(acc.boardId, user.id, `set the creator’s roles to ${ids.map((rid) => roles.find((r) => r.id === rid)?.code).filter(Boolean).join(', ') || 'none'}`);
+    return OK;
+  });
+}
+
+/** The creator's real first name. Kept on the same member row as their roles. */
+export async function setOwnerFirstName(boardId: string, firstName: string): Promise<KramaResult> {
+  return guard(async () => {
+    const { acc } = await access(boardId, 'manage');
+    const p = z.string().trim().max(LIMITS.firstName).safeParse(firstName);
+    if (!p.success) return fail('That name is too long.');
+    const [owner] = await db.select({ email: schema.user.email, name: schema.user.name }).from(schema.user).where(eq(schema.user.id, acc.ownerId));
+    if (!owner) return fail('Creator not found.');
+    await db
+      .insert(M)
+      .values({ id: crypto.randomUUID(), boardId: acc.boardId, key: labsKey(owner.email), email: owner.email.toLowerCase(), name: owner.name, firstName: p.data, access: 'full', roleIds: [] })
+      .onConflictDoUpdate({ target: [M.boardId, M.key], set: { firstName: p.data } });
     return OK;
   });
 }

@@ -35,6 +35,8 @@ export type KMember = {
   id: string;
   email: string;
   name: string;
+  /** Real first name, set by the project owner ('' = not set). */
+  firstName: string;
   access: Access;
   roleIds: string[];
   /** The account behind the email, once that person has signed in. */
@@ -59,7 +61,7 @@ export type BoardData = {
   roles: KRole[];
   members: KMember[];
   /** The creator. `roleIds`: roles they gave themselves (stored as a member row for their own email). */
-  owner: { id: string; name: string; email: string; image: string | null; roleIds: string[] };
+  owner: { id: string; name: string; email: string; image: string | null; roleIds: string[]; firstName: string };
   /** Names for doneBy ids (people who ticked cards). */
   people: Record<string, { name: string; image: string | null }>;
   /** Every revision request on this board (for the Progress scoreboard). */
@@ -151,7 +153,7 @@ export const PRIORITIES: Record<Priority, { name: string; color: string; rank: n
 export const PRIORITY_IDS = Object.keys(PRIORITIES) as Priority[];
 
 // ── Limits (enforced on the server, mirrored in the inputs) ──
-export const LIMITS = { revision: 500, roleCode: 6, roleName: 60, memberName: 60, title: 200, listTitle: 80, boardTitle: 80, description: 8000, comment: 2000, label: 30, checklistTitle: 80, item: 300, checklists: 10, items: 100 };
+export const LIMITS = { revision: 500, roleCode: 6, roleName: 60, memberName: 60, firstName: 40, title: 200, listTitle: 80, boardTitle: 80, description: 8000, comment: 2000, label: 30, checklistTitle: 80, item: 300, checklists: 10, items: 100 };
 
 // ── Due status ──
 export type DueState = 'done' | 'overdue' | 'today' | 'soon' | 'later';

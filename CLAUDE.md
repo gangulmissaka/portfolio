@@ -91,6 +91,13 @@ building while the dev server runs is fine). If the dev server serves an old `gl
   **Account menu projects**: the header account menu lists "Your projects" under Guestbook (boards the user owns
   or is a member of, `menuBoards()` in `lib/krama/data.ts`), only for people with Labs access (`projects` prop
   null = no section). The header outlives navigation, so the list re-fetches with `myMenuBoards()` on each open.
+- **Krama first names & PDF report**: `krama_member.firstName` holds a person's real first name, typed by whoever
+  manages the board in Members & Roles (`FirstName` in `MembersView.tsx`; the creator's is on their own member row
+  via `setOwnerFirstName`). Role cards list holders by first name. The toolbar **PDF** button
+  (`ReportButton.tsx`) builds a progress report in the browser with `pdf-lib` (`lib/krama/report.ts`, dynamically
+  imported so the board bundle stays small): summary, team, roles, finished, still to do. It uses the PDF standard
+  Helvetica font (Latin only): `pick()` falls back to a name that prints, other non-Latin text becomes "?".
+  Test it in Node by bundling report.ts with esbuild and rendering pages with PyMuPDF.
 - **Krama revisions & Progress**: full-access people can send a ticked card back (`requestRevision`, reason
   required): it unticks, gets `revision*` columns (red `.k-revision` glow) and a `krama_revision` row; ticking it
   again clears it. The Progress tab (`ProgressView.tsx`) scores everyone from `lib/krama/score.ts` (pure; rules in

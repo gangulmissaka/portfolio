@@ -211,6 +211,8 @@ export const kramaMember = pgTable(
     key: text('key').notNull(),
     email: text('email').notNull(),
     name: text('name').notNull().default(''),
+    /** Real first name, typed by the project owner (shown in Members & Roles and the PDF report). */
+    firstName: text('firstName').notNull().default(''),
     access: text('access').notNull().default('tick'),
     roleIds: jsonb('roleIds').$type<string[]>().notNull().default([]),
     createdAt: timestamp('createdAt').notNull().defaultNow(),
@@ -345,6 +347,7 @@ create index if not exists krama_activity_board_idx on "krama_activity"("boardId
 alter table "krama_card" add column if not exists "revisionReason" text;
 alter table "krama_card" add column if not exists "revisionBy" text;
 alter table "krama_card" add column if not exists "revisionAt" timestamp;
+alter table "krama_member" add column if not exists "firstName" text not null default '';
 create table if not exists "krama_revision" (
   "id" text primary key, "boardId" text not null references "krama_board"("id") on delete cascade,
   "cardId" text not null references "krama_card"("id") on delete cascade, "byUserId" text, "targetUserId" text,

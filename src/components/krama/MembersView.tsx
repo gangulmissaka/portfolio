@@ -16,6 +16,10 @@ export function MembersView({ data, api }: { data: BoardData; api: BoardApi }) {
   const { roles, members, perm, owner, cards } = data;
   const manage = perm.canManage;
   const openByRole = (id: string) => Object.values(cards).filter((c) => !c.archived && c.roleId === id && !c.dueDone).length;
+  const holders = (roleId: string): Holder[] => [
+    ...(owner.roleIds.includes(roleId) ? [{ id: 'owner', label: owner.firstName || owner.name, image: owner.image }] : []),
+    ...members.filter((m) => m.roleIds.includes(roleId)).map((m) => ({ id: m.id, label: m.firstName || m.name || m.account?.name || m.email.split('@')[0], image: m.account?.image ?? null })),
+  ];
 
   return (
     <div data-lenis-prevent className="k-scroll min-h-0 flex-1 overflow-y-auto px-[var(--gutter)] pb-10">
@@ -37,7 +41,7 @@ export function MembersView({ data, api }: { data: BoardData; api: BoardApi }) {
           </div>
           <ul className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {roles.map((r) => (
-              <RoleCard key={r.id} role={r} people={members.filter((m) => m.roleIds.includes(r.id))} open={openByRole(r.id)} manage={manage} api={api} />
+              <RoleCard key={r.id} role={r} people={holders(r.id)} open={openByRole(r.id)} manage={manage} api={api} />
             ))}
             {manage && <NewRole api={api} existing={roles} />}
           </ul>
@@ -67,6 +71,7 @@ export function MembersView({ data, api }: { data: BoardData; api: BoardApi }) {
               <div className="min-w-0 flex-1">
                 <p className="flex items-center gap-2 font-medium">{owner.name} {owner.id === data.me.id && <span className="text-xs text-mute">(you)</span>}</p>
                 <p className="truncate text-sm text-mute">{owner.email}</p>
+                <FirstName value={owner.firstName} manage={manage} who={owner.name} onSave={(v) => api.setOwnerFirstName(v)} />
               </div>
               <OwnerRoles data={data} api={api} manage={manage} />
               <span className="rounded-full bg-ember/15 px-3 py-1 text-xs text-ember">Owner · full access, can tick every card</span>
@@ -99,7 +104,36 @@ export function OwnerRoles({ data, api, manage }: { data: BoardData; api: BoardA
   );
 }
 
-function RoleCard({ role, people, open, manage, api }: { role: KRole; people: KMember[]; open: number; manage: boolean; api: BoardApi }) {
+type Holder = { id: string; label: string; image: string | null };
+
+/**
+ * A person's real first name. The owner (and the Krama admin) type it in; everyone else sees it once it is set.
+ * Saved on blur or Enter; an empty box clears it.
+ */
+function FirstName({ value, manage, who, onSave }: { value: string; manage: boolean; who: string; onSave: (v: string) => void }) {
+  const [draft, setDraft] = useState(value);
+  const [seen, setSeen] = useState(value);
+  if (seen !== value) { setSeen(value); setDraft(value); } // updated elsewhere (refresh, another tab)
+  if (!manage) return value ? <p className="mt-0.5 text-xs text-bone-2">First name: <span className="font-medium text-bone">{value}</span></p> : null;
+  const commit = () => { const v = draft.trim(); if (v !== value) onSave(v); setDraft(v); };
+  return (
+    <label className="mt-1.5 flex max-w-64 items-center gap-2 text-xs text-mute">
+      <span className="shrink-0">First name</span>
+      <input
+        value={draft}
+        maxLength={LIMITS.firstName}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => { if (e.key === 'Enter') e.currentTarget.blur(); if (e.key === 'Escape') { setDraft(value); e.currentTarget.blur(); } }}
+        placeholder="Real first name"
+        aria-label={`Real first name for ${who}`}
+        className="h-7 min-w-0 flex-1 rounded-lg border border-line-2 bg-ink px-2 text-xs text-bone placeholder:text-mute-2 focus:border-ember/70 focus:outline-none"
+      />
+    </label>
+  );
+}
+
+function RoleCard({ role, people, open, manage, api }: { role: KRole; people: Holder[]; open: number; manage: boolean; api: BoardApi }) {
   const [editing, setEditing] = useState(false);
   if (editing) return <li><RoleForm initial={role} onSave={(r) => { api.saveRole(r); setEditing(false); }} onCancel={() => setEditing(false)} onDelete={() => { if (confirm(`Delete the ${role.code} role? Cards with this role will have no role, and members lose it.`)) api.deleteRole(role.id); }} /></li>;
   return (
@@ -113,13 +147,18 @@ function RoleCard({ role, people, open, manage, api }: { role: KRole; people: KM
           </button>
         )}
       </div>
-      <div className="mt-auto flex items-center justify-between gap-2 text-xs text-mute">
-        <span className="flex -space-x-2">
-          {people.slice(0, 5).map((p) => (
-            <span key={p.id} className="rounded-full ring-2 ring-ink-2" title={p.name || p.email}><Avatar user={{ name: p.name || p.account?.name || p.email, image: p.account?.image ?? null }} size={24} /></span>
+      {people.length > 0 && (
+        <ul className="flex flex-wrap gap-1.5" aria-label={`People with the ${role.code} role`}>
+          {people.map((p) => (
+            <li key={p.id} className="flex items-center gap-1.5 rounded-full border border-line bg-ink/60 py-0.5 pl-0.5 pr-2.5 text-xs text-bone-2">
+              <Avatar user={{ name: p.label, image: p.image }} size={20} />
+              <span className="max-w-32 truncate">{p.label}</span>
+            </li>
           ))}
-          {people.length === 0 && <span>{role.code === 'ALL' ? 'Everyone on the board' : 'No one yet'}</span>}
-        </span>
+        </ul>
+      )}
+      <div className="mt-auto flex items-center justify-between gap-2 text-xs text-mute">
+        <span>{people.length === 0 ? (role.code === 'ALL' ? 'Everyone on the board' : 'No one yet') : `${people.length} ${people.length === 1 ? 'person' : 'people'}`}</span>
         <span>{open} open {open === 1 ? 'card' : 'cards'}</span>
       </div>
     </li>
@@ -247,6 +286,7 @@ export function MemberRow({ member, roles, manage, api, isMe, board }: { member:
             {isMe && <span className="text-xs">(you)</span>}
           </p>
           <p className="sr-only">{member.account ? 'Has signed in' : 'Has not signed in yet'}</p>
+          <FirstName value={member.firstName} manage={manage} who={display} onSave={(v) => api.updateMember(member.id, { firstName: v })} />
         </div>
       </div>
       <AccessSwitch value={member.access} disabled={!manage} name={display} onChange={(a) => api.updateMember(member.id, { access: a })} />

@@ -159,7 +159,7 @@ export async function loadBoard(user: SessionUser, boardId: string): Promise<Boa
   const ownerRow = members.find((m) => m.key === ownerKey);
   const kmembers: KMember[] = members.filter((m) => m.key !== ownerKey).map((m) => {
     const a = accounts.get(m.key);
-    return { id: m.id, email: m.email, name: m.name, access: m.access === 'full' ? 'full' : 'tick', roleIds: m.roleIds ?? [], account: a ? { id: a.id, name: a.name, image: a.image } : null };
+    return { id: m.id, email: m.email, name: m.name, firstName: m.firstName ?? '', access: m.access === 'full' ? 'full' : 'tick', roleIds: m.roleIds ?? [], account: a ? { id: a.id, name: a.name, image: a.image } : null };
   });
   const activity = acc.canManage
     ? await db
@@ -187,7 +187,7 @@ export async function loadBoard(user: SessionUser, boardId: string): Promise<Boa
     comments: byCard,
     roles: roles.map((r) => ({ ...r, color: r.color as LabelColor })),
     members: kmembers,
-    owner: { id: board.userId, name: owner?.name ?? 'Owner', email: owner?.email ?? '', image: owner?.image ?? null, roleIds: ownerRow?.roleIds ?? [] },
+    owner: { id: board.userId, name: owner?.name ?? 'Owner', email: owner?.email ?? '', image: owner?.image ?? null, roleIds: ownerRow?.roleIds ?? [], firstName: ownerRow?.firstName ?? '' },
     people,
     revisions: revisions.map((r) => ({ id: r.id, cardId: r.cardId, byId: r.byUserId, targetId: r.targetUserId, reason: r.reason, createdAt: r.createdAt.toISOString(), resolvedAt: r.resolvedAt ? r.resolvedAt.toISOString() : null })),
     activity: activity.map((a) => ({ id: a.id, action: a.action, cardId: a.cardId, createdAt: a.createdAt.toISOString(), user: a.name ? { name: a.name, image: a.image } : null })),

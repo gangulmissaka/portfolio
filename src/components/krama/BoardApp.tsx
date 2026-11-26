@@ -10,6 +10,7 @@ import { BoardView, MenuItem } from './BoardView';
 import { CardModal } from './CardModal';
 import { MonthCalendar, nextWorkingDay, useTodaySL, type CalItem } from './calendar';
 import { AppLock } from './AppLock';
+import { ReportButton } from './ReportButton';
 import { BoardAdmin } from './BoardAdmin';
 import { MembersView } from './MembersView';
 import { ProgressView } from './ProgressView';
@@ -266,6 +267,8 @@ export function BoardApp({ initial }: { initial: BoardData }) {
               <QuickAdd lists={lists} today={today} onAdd={(listId, title, due, openAfter) => { const id = api.addCard(listId, title, { dueDate: due }); if (openAfter) { setPop(null); open(id); } }} />
             </Popover>
           </div>}
+
+          <ReportButton data={state} />
 
           <div className="relative">
             <button type="button" data-popover-trigger onClick={() => setPop(pop === 'menu' ? null : 'menu')} className="grid size-9 place-items-center rounded-full border border-line-2 bg-ink/50 text-bone-2 backdrop-blur hover:border-bone hover:text-bone" aria-label="Board menu" aria-expanded={pop === 'menu'}>
